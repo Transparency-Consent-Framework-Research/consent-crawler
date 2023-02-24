@@ -4,7 +4,7 @@
 ## Introduction
 Playwright based crawler designed to collect network telemetry and cookies by interacting with GDPR / TCF consent banners on publisher websites. Used to collect data as part of an academic research project into the adoption and quality of the Trust & Consent Framework put forth by the Internet Advertising Bureau (IAB).
 
-The project includes a list of the top 100,000 domains, this list is used to generate the default list of domains to crawl.
+The project includes a list of the top 100,000 domains, this list is used to generate the default list of domains to crawl. The list can be any single column CSV list, make_target_list splits the string by line into an array domains.
 
 ## Installation 
 - Recommended NodeJS Version: 18.x
