@@ -128,4 +128,58 @@ export const banners = [
       },
     }
   },
+
+  // https://trustarc.com/
+  {
+    name: 'CMP - Trustarc',
+    url: 'trustarc.com/',
+    accept_selector: 'button#truste-consent-button',
+    playbooks: {
+      accept: async (page: Page, log: Log) => {
+        log.info('Accepting Consent Banner');
+        page
+      },
+      reject: async (page: Page, log: Log) => {
+        log.info('Rejecting Consent Banner');
+        await page.locator('button#truste-consent-required').click();
+        log.info('Rejected');
+      },
+    }
+  },
+
+  // https://www.civicuk.com/cookie-control/
+  {
+    name: 'CMP - civicUK',
+    url: 'civicuk.com/cookie-control/',
+    accept_selector: 'button#ccc-notify-accept',
+    playbooks: {
+      accept: async (page: Page, log: Log) => {
+        log.info('Accepting Consent Banner');
+        page
+      },
+      reject: async (page: Page, log: Log) => {
+        log.info('Rejecting Consent Banner');
+        await page.locator('button#ccc-notify-reject').click();
+        log.info('Rejected');
+      },
+    }
+  },
+
+  // https://www.cookiebot.com/
+  {
+    name: 'CMP - cookieBot',
+    url: 'cookiebot.com/',
+    accept_selector: 'button#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowallSelection',
+    playbooks: {
+      accept: async (page: Page, log: Log) => {
+        log.info('Accepting Consent Banner');
+        page
+      },
+      reject: async (page: Page, log: Log) => {
+        log.info('Rejecting Consent Banner');
+        await page.locator('button#CybotCookiebotDialogBodyButtonDecline').click();
+        log.info('Rejected');
+      },
+    }
+  },
 ];
