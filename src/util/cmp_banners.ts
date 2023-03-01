@@ -129,11 +129,13 @@ export const banners = [
     }
   },
 
-  // https://trustarc.com/
+  // https://www.forbes.com/
+  // https://fortune.com/
+  // https://www.flickr.com/ -> not working
   {
     name: 'CMP - Trustarc',
-    url: 'trustarc.com/',
-    accept_selector: 'button#truste-consent-button',
+    url: 'consent.trustarc.com/notice',
+    //accept_selector: 'a.saveAndExit',
     playbooks: {
       accept: async (page: Page, log: Log) => {
         log.info('Accepting Consent Banner');
@@ -141,7 +143,10 @@ export const banners = [
       },
       reject: async (page: Page, log: Log) => {
         log.info('Rejecting Consent Banner');
-        await page.locator('button#truste-consent-required').click();
+        await page.locator('button#truste-show-consent').click();
+        await page.waitForTimeout(3000);
+        const iframeP = page.frameLocator('.truste_box_overlay .truste_box_overlay_inner .truste_popframe');
+        await iframeP.locator('.mainContent a.rejectAll').click();
         log.info('Rejected');
       },
     }
