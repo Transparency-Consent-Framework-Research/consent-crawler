@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { shuffle } from './shuffle.js';
 
 export const make_target_list = async (filePath: string): Promise<Array<string>> => {
   const domains = await readFile(filePath, { encoding: 'utf8' });
@@ -6,5 +7,5 @@ export const make_target_list = async (filePath: string): Promise<Array<string>>
   const urls = domain_array.map(domain => {
     return `http://${domain}`;
   });
-  return urls;
+  return shuffle(urls);
 }
