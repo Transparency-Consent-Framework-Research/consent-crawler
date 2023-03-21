@@ -16,29 +16,3 @@ export const shinyStatHandler:BannerHandler = {
     }
   ]
 }
-
-
-
-// // BannerHandler = {
-// //   name: 'ShinyStat',
-// //   url: 'shinystat.com',
-// //   variants: [
-// //     [
-// //       {
-// //         name: 'Main Variant',
-// //         check: async (page: Page) => {
-// //             page;
-// //             return true;
-// //         },
-// //         accept: async (page: Page) => {
-// //             await page.locator('div[class^="div_shbnr_"] div[class^="innerdiv_shbnr_cs_"] button[class*="okBtn_shbnr_cs_"]').click();
-// //             page;
-// //         },
-// //         reject: async (page: Page) => {
-// //             await page.locator('div[class^="div_shbnr_"] div[class^="innerdiv_shbnr_cs_"] button[class*="koBtn_shbnr_cs_"]').click();
-// //             console.log('Rejected Succesfully.');
-// //         }
-// //       }
-// //     ]
-// //   ]
-// // }
