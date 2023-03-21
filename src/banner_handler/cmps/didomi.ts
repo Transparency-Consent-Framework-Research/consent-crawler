@@ -19,6 +19,7 @@ export const didomiHandler: BannerHandler = {
         await page.locator('#didomi-notice #didomi-notice-learn-more-button').click();
         await page.waitForTimeout(1000);
         await page.locator('#didomi-consent-popup div.didomi-consent-popup-actions button:first-child').click();
+        console.log('Rejected Succesfully.');
       }
     }
   ]

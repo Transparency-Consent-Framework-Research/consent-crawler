@@ -9,6 +9,7 @@ import { cookiebotHandler } from './cmps/cookiebot.js';
 import { didomiHandler } from './cmps/didomi.js';
 import { oneTrustHandler } from './cmps/onetrust.js';
 import { trustArcHandler } from './cmps/trustarc.js';
+import { shinyStatHandler } from './cmps/shinystat.js';
 
 export type BannerHandler = {
   name: string;
@@ -35,12 +36,13 @@ export const detector = (log: Log) => {
 
   const handlers = [
     quantcastHandler,
-    // civicHandler, //TODO
-    // cmpHandler,
-    // cookiebotHandler,
-    // didomiHandler,
-    // oneTrustHandler,
-    // trustArcHandler,
+    civicHandler,
+    cmpHandler,
+    cookiebotHandler,
+    didomiHandler,
+    oneTrustHandler,
+    trustArcHandler,
+    shinyStatHandler,
   ];
 
   const detectCmp = (url :string): DetectResult => {

@@ -3,7 +3,7 @@ import { BannerHandler } from '../index.js';
 
 export const civicHandler: BannerHandler = {
   name: 'Civic',
-  url: 'sdk.privacy-center.org',
+  url: 'civicuk.com/cookie-control/',
   variants: [
     {
       name: 'Main Variant',
@@ -12,10 +12,12 @@ export const civicHandler: BannerHandler = {
         return true;
       },
       accept: async (page: Page) => {
+        await page.locator('button#ccc-notify-accept').click();
         page;
       },
       reject: async (page: Page) => {
         await page.locator('button#ccc-notify-reject').click(); 
+        console.log('Rejected Succesfully.');
       }
     }
   ]

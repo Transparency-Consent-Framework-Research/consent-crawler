@@ -190,7 +190,19 @@ const crawler = new PlaywrightCrawler({
 });
 
 // Start the crawl
-await crawler.run(['https://www.bleepingcomputer.com']);
+//await crawler.run(['https://www.bleepingcomputer.com']);
+await crawler.run([
+  'https://www.bleepingcomputer.com',
+  'https://www.civicuk.com/cookie-control/',
+  'https://businessinsider.com.pl/',
+  'https://www.cookiebot.com/',
+  'https://us.as.com/',
+  'http://eurogamer.net',
+  'http://msdmanuals.com',
+  'https://www.forbes.com/',
+  'https://fortune.com/',
+  'https://www.pentasoft.it/'
+])
 
 // Exit out once crawl the crawl is done
 process.exit();

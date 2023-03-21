@@ -12,10 +12,12 @@ export const cookiebotHandler: BannerHandler = {
         return true;
       },
       accept: async (page: Page) => {
-        page
+        await page.locator('button#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowallSelection').click();
+        page;
       },
       reject: async (page: Page) => {
         await page.locator('button#CybotCookiebotDialogBodyButtonDecline').click();
+        console.log('Rejected Succesfully.');
       }
     }
   ]
