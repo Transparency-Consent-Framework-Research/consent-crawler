@@ -201,8 +201,19 @@ await crawler.run([
   'http://msdmanuals.com',
   'https://www.forbes.com/',
   'https://fortune.com/',
-  'https://www.pentasoft.it/'
+  'https://www.pentasoft.it/',
+  'https://www.fightfear.us/',
+  'http://hustleforhumanity.org/',
+  'https://ekilu.com/es',
+  'https://ogury.com/',
+  'https://tasty-cat.net/',
+  'https://www.klatsch-tratsch.de/',
+  'https://www.wisst-ihr-noch.de/',
+  'https://www.asiakastieto.fi/web/fi/',
+  'https://videnskab.dk/',
+  'https://borsenfordelsklub.dk/',
+  'https://www.finect.com/',
+  'https://www.lasexta.com/'
 ])
-
 // Exit out once crawl the crawl is done
 process.exit();
