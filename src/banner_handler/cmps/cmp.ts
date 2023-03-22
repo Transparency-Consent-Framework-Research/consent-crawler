@@ -12,11 +12,15 @@ export const cmpHandler: BannerHandler = {
         page;
         return true;
       },
-      accept: async (page: Page) => {page;},
+      accept: async (page: Page) => {
+        await page.locator('button.cmp-intro_acceptAll').click();
+        page;
+      },
       reject: async (page: Page) => {
         await page.locator('.cmp-popup_popup .cmp-intro_options button.cmp-intro_rejectAll').click();
         await page.waitForTimeout(500);
         await page.locator('.cmp-popup_popup .cmp-details_footer button.cmp-intro_rejectAll').click();
+        console.log('Rejected Succesfully.');
       }
     }
   ]

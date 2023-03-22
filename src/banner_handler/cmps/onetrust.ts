@@ -18,6 +18,7 @@ export const oneTrustHandler: BannerHandler = {
         await page.locator('button#onetrust-pc-btn-handler').click();
         await page.waitForTimeout(1000);
         await page.locator('button.save-preference-btn-handler').click();
+        console.log('Rejected Succesfully.');
       }
     }
   ]

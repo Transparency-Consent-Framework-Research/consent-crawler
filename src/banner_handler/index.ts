@@ -9,6 +9,13 @@ import { cookiebotHandler } from './cmps/cookiebot.js';
 import { didomiHandler } from './cmps/didomi.js';
 import { oneTrustHandler } from './cmps/onetrust.js';
 import { trustArcHandler } from './cmps/trustarc.js';
+import { shinyStatHandler } from './cmps/shinystat.js';
+import { sibboHandler } from './cmps/sibbo.js';
+import { shareThisHandler } from './cmps/sharethis.js';
+import { oguryHandler } from './cmps/ogury.js';
+import { gmbhHandler } from './cmps/gmbh.js';
+import { cookieInfoHandler } from './cmps/cookieinformation.js';
+import { transfonHandler } from './cmps/transfon.js';
 
 export type BannerHandler = {
   name: string;
@@ -35,12 +42,19 @@ export const detector = (log: Log) => {
 
   const handlers = [
     quantcastHandler,
-    // civicHandler, //TODO
-    // cmpHandler,
-    // cookiebotHandler,
-    // didomiHandler,
-    // oneTrustHandler,
-    // trustArcHandler,
+    civicHandler,
+    cmpHandler,
+    cookiebotHandler,
+    didomiHandler,
+    oneTrustHandler,
+    trustArcHandler,
+    shinyStatHandler,
+    sibboHandler,
+    shareThisHandler,
+    oguryHandler,
+    gmbhHandler,
+    cookieInfoHandler,
+    transfonHandler,
   ];
 
   const detectCmp = (url :string): DetectResult => {
