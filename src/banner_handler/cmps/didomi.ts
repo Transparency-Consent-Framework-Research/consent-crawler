@@ -6,11 +6,8 @@ export const didomiHandler: BannerHandler = {
   url: 'sdk.privacy-center.org',
   variants: [
     {
-      name: 'Main',
-      check: async (page: Page) => {
-        page;
-        return true;
-      },
+      name: 'Variant - HeaderType1',
+      check: async(page: Page) => !!(await page.locator('#didomi-notice').count()),
       accept: async (page: Page) => {
         await page.locator('#didomi-notice #didomi-notice-agree-button').click();
         page
@@ -21,6 +18,20 @@ export const didomiHandler: BannerHandler = {
         await page.locator('#didomi-consent-popup div.didomi-consent-popup-actions button:first-child').click();
         console.log('Rejected Succesfully.');
       }
-    }
+    },
+    {
+      name: 'Variant - PopupType1',
+      check: async(page: Page) => !!(await page.locator('#didomi-popup').count()),
+      accept: async (page: Page) => {
+        await page.locator('.didomi-popup-view button#didomi-notice-agree-button').click();
+        page
+      },
+      reject: async (page: Page) => {
+        await page.locator('.didomi-popup-view button#didomi-notice-learn-more-button').click();
+        await page.waitForTimeout(1000);
+        await page.locator('.didomi-consent-popup-footer .didomi-consent-popup-actions button:first-child').click();
+        console.log('Rejected Succesfully.');
+      }
+    },
   ]
 }
