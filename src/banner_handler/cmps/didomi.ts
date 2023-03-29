@@ -6,8 +6,18 @@ export const didomiHandler: BannerHandler = {
   url: 'sdk.privacy-center.org',
   variants: [
     {
+      name: 'Variant - Accept Only - No Reject Option (Subscription Required)',
+      check: async(page: Page) => !!(await page.locator('.jad_cmp_paywall_content').isVisible()),
+      accept: async (page: Page) => {
+        page
+      },
+      reject: async (_page: Page) => {
+        console.log('Reject Fail. Variant requires subscription');
+      }
+    },
+    {
       name: 'Variant - HeaderType1',
-      check: async(page: Page) => !!(await page.locator('#didomi-notice').count()),
+      check: async(page: Page) => !!(await page.locator('#didomi-notice').isVisible()),
       accept: async (page: Page) => {
         await page.locator('#didomi-notice #didomi-notice-agree-button').click();
         page
@@ -21,7 +31,7 @@ export const didomiHandler: BannerHandler = {
     },
     {
       name: 'Variant - PopupType1',
-      check: async(page: Page) => !!(await page.locator('#didomi-popup').count()),
+      check: async(page: Page) => !!(await page.locator('#didomi-popup').isVisible()),
       accept: async (page: Page) => {
         await page.locator('.didomi-popup-view button#didomi-notice-agree-button').click();
         page
