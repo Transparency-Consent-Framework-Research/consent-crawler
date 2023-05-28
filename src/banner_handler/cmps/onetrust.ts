@@ -6,45 +6,41 @@ export const oneTrustHandler: BannerHandler = {
   url: 'cdn.cookielaw.org/scripttemplates/otSDKStub.js',
   variants: [
     {
-      name: 'Alternative Variant',
-      check: (page: Page) => {
-        return page.locator("#onetrust-consent-sdk #onetrust-accept-btn-handler").isVisible();
-      },
-      accept: (page) => page.locator("#onetrust-accept-btn-handler").click(),
-      reject: async (page) => {
-        await page.locator('button#onetrust-pc-btn-handler').click();
-        await page.waitForTimeout(1000);
-        await page.locator('button.save-preference-btn-handler').click();
-      }
-
-    },
-    {
-      name: 'Three Options - Reject All',
+      name: 'Main Variant',
       check: async (page: Page) => {
-        const buttonCount = await page.locator("#onetrust-banner-sdk #onetrust-button-group button").count();
-        console.log('buttonCount', buttonCount);
-        return buttonCount === 3;
+        page;
+        return true;
       },
-      accept: async (page) => page.locator("#onetrust-banner-sdk #onetrust-accept-btn-handler").click(),
-      reject: async (page) => page.locator("#onetrust-banner-sdk #onetrust-button-group #onetrust-reject-all-handler").click()
-    },
-    {
-      name: 'Main Variant - Both Options',
-      check: (page: Page) => page.locator("#onetrust-banner-sdk #onetrust-button-group #onetrust-pc-btn-handler").isVisible(),
       accept: async (page: Page) => {
         await page.locator('button#onetrust-accept-btn-handler').click();
       },
       reject: async (page: Page) => {
-        await page.locator('button#onetrust-pc-btn-handler').click();
-        await page.waitForTimeout(1000);
-        await page.locator('button.save-preference-btn-handler').click();
+        await page.waitForTimeout(2000);
+        const dontEnableBtn =  !!(await page.locator('button#onetrust-reject-all-handler').isVisible());
+        const rejectBtn =  !!(await page.locator('button#cookie-disclosure-reject').isVisible());
+        if(dontEnableBtn){
+          await page.locator('button#onetrust-reject-all-handler').click();
+        }
+        else if(rejectBtn){
+          await page.locator('button#cookie-disclosure-reject').click();
+        }
+        else {
+          await page.locator('button#onetrust-pc-btn-handler').click();
+          await page.waitForTimeout(1000);
+          const refuseAllBtn = !!(await page.locator('button.ot-pc-refuse-all-handler').isVisible());
+          const rejectAllBtn = !!(await page.locator('button.ot-pc-reject-all-handler').isVisible()); 
+          if(refuseAllBtn){
+            await page.locator('button.ot-pc-refuse-all-handler').click();
+          }
+          else if(rejectAllBtn){
+            await page.locator('button.ot-pc-reject-all-handler').click();
+          }
+          else{
+            await page.locator('button.save-preference-btn-handler').click();
+          }
+        }
+        console.log('Rejected Succesfully.');
       }
-    },
-    {
-      name: 'Accept Only - No Reject Option',
-      check: (page: Page) => page.locator("#onetrust-banner-sdk div.accept-btn-only").isVisible(),
-      accept: async (page) => page.locator("#onetrust-banner-sdk #onetrust-accept-btn-handler").click(),
-      reject: async (_page) => console.log('Reject Fail. Variant does not have reject option.'),
     }
   ]
 }

@@ -13,7 +13,7 @@ export const cmpHandler: BannerHandler = {
         return true;
       },
       accept: async (page: Page) => {
-        await page.locator('button.cmp-intro_acceptAll').click();
+        await page.locator('button.cmp-intro_acceptAll').click(); 
         page;
       },
       reject: async (page: Page) => {

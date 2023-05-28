@@ -12,7 +12,7 @@ export const civicHandler: BannerHandler = {
         return true;
       },
       accept: async (page: Page) => {
-        await page.locator('button#ccc-notify-accept').click();
+        await page.locator('button#ccc-notify-accept').click(); 
         page;
       },
       reject: async (page: Page) => {
