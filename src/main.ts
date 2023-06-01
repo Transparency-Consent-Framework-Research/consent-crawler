@@ -3,12 +3,25 @@ import { Request, Cookie  } from 'playwright';
 import { make_formatted_request, FormattedRequest } from './util/requests.js';
 import { make_target_list } from './util/target_list.js';
 import { banners } from './util/cmp_banners.js';
+import { detector, bannerHandler } from './banner_handler/index.js';
+
+/**
+ * @TODO - Refactor CMP banners to use check/variants system (See example)
+ * @TODO - Add wrapper code to run and log the CMP process
+ * @TODO - Investigate using playwright routes instead of the loop/regex system
+ * @TODO - Refactor main to make crawler exportable from an index.ts file 
+ * @TODO - Make new main.ts file call this exportable crawler and pass any target list needed
+ * @TODO - Write automated tests for each CMP banner
+ * @TODO - Make docker image build succesfully and run tests.
+ */
 
 type CrawlData = {
   target_url: string;
-  consent_banner: boolean;
+  cmp_detected: boolean;
+  cmp_name?: string;
+  cmp_banner_variant?: string;
   consent_action: "ACCEPT" | "REJECT" | "NONE";
-  consent_action_success: boolean;
+  consent_action_success?: boolean;
   crawl_geo: string,
   crawl_ip: string,
   requests: FormattedRequest[],
@@ -20,20 +33,32 @@ const startUrls = await make_target_list('./data/top100k.csv');
 
 // Open a storage handler to store crawl results
 // See: https://crawlee.dev/docs/guides/result-storage#key-value-store
-const store = await KeyValueStore.open();
+const store = await KeyValueStore.open('0316');
 
 const crawler = new PlaywrightCrawler({
   // Takes array of http(s) or socks5 proxies, they are used in a round-robin fashion between 
   // target domains in the queue
-  // proxyConfiguration: new ProxyConfiguration({
-  //   proxyUrls: [
-  //     'http://1.2..4:1234', // http(s) or socks5 proxy URL
-  //     ],
-  // }),
+  proxyConfiguration: new ProxyConfiguration({
+    proxyUrls: [
+      'http://104.233.18.2:5335', // GERMANY
+      'http://154.21.10.199:5220', // SPAIN
+      'http://154.92.115.198:6197', // NED
+      'http://154.21.8.89:6297', // SPAIN
+      'http://45.43.181.94:5440', // SPAIN
+      'http://188.74.211.135:6470', // ITALY
+      'http://185.168.158.211:5723', // FRANCE
+      'http://154.21.96.233:5859', // UK
+      'http://104.233.18.250:5583', // GERMANY
+      'http://154.55.88.63:5663', // FRANCE
+      'http://45.192.132.78:5723', // POLAND
+      'http://154.13.11.233:6081', // UK
+      'http://154.12.12.80:5128', // UK
+      ],
+  }),
   launchContext: {
     // Here you can set options that are passed to the playwright .launch() function.
     launchOptions: {
-      headless: false,
+      headless: true,
     },
     // This along with persistCookiesPerSession attempt to ensure a clean session for every domain
     useIncognitoPages: true,
@@ -53,22 +78,17 @@ const crawler = new PlaywrightCrawler({
       }
     },
     // Optional request blocking when needing to save proxy bandwidth (unconfirmed if it affects quality)
-    async ({ blockRequests }) => {
-      await blockRequests({
-        extraUrlPatterns: ['.mp4', '.mov', '.flv', '.webm', '.mkv'],
-      });
-    },
+    // async ({ blockRequests }) => {
+    //   await blockRequests({
+    //     extraUrlPatterns: ['.mp4', '.mov', '.flv', '.webm', '.mkv'],
+    //   });
+    // },
     // Mount network request listener and push formatted request 
     async (crawlingContext) => {
       crawlingContext.request.userData.requests = [];
 
       const { page } = crawlingContext;
       page.on('request', async (request: Request) => {
-        // Log only any navigation request to reduce log noise (this is totally optional)
-        if(request.isNavigationRequest()) {
-          crawlingContext.log.info(`>> ${request.method()} - ${request.url().substring(0, 40)}`);
-        }
-
         try {
           // format and push the request into session storage
           const formatted_request =  await make_formatted_request(request);
@@ -80,30 +100,28 @@ const crawler = new PlaywrightCrawler({
     },
     // Detect consent banners
     async (crawlingContext) => {
-      crawlingContext.request.userData.detected_consent = false;
+
+      crawlingContext.request.userData.cmp_detected = false;
+      crawlingContext.request.userData.cmp_name = undefined;
+      crawlingContext.request.userData.cmp_banner_variant = undefined;
+      crawlingContext.request.userData.consent_action_success = undefined;
+
       const { page } = crawlingContext;
+      const bannerHandler = detector(crawlingContext.log);
+
       page.on('request', async (request: Request) => {
         // Stop checking every request once consent is detected once
-        if(crawlingContext.request.userData.detected_consent) {
+        if(crawlingContext.request.userData.cmp_detected) {
           return;
         }
 
-        // Iterate over incoming requests to any CMP's SDK by matching against the request URL
-        for (let index = 0; index < banners.length; index++) {
-          const banner = banners[index];
-          crawlingContext.log.debug(`Checking URL for presence of ${banner.name}`);
-          const url = request.url();
-          // If a network request matches the CMP url fragment, update the session state
-          // to indicate detection
-          if(url.indexOf(banner.url) > 0) {
-            crawlingContext.log.info(`🎇 CMP Detected! ${banner.name}`);
-            crawlingContext.request.userData.detected_consent = true;
-            crawlingContext.request.userData.detected_consent_name = banner.name;
-            // This is suboptimal, passing the entire handler to execute when navigation is complete
-            // @TODO - Refactor to support evaluating multiple handlers in case of many variants for 
-            // one CMP.
-            crawlingContext.request.userData.consent_handler = banner;
-          }
+        const url = request.url();
+        const detectResult = bannerHandler.detectCmp(url);
+        if(detectResult.match) {
+          crawlingContext.log.info(`🎇 CMP Detected! ${detectResult.handler?.name}`);
+          crawlingContext.request.userData.cmp_detected = true
+          crawlingContext.request.userData.cmp_name = detectResult.handler?.name;
+          crawlingContext.request.userData.banner_handler = detectResult.handler;
         }
       });
     }
@@ -120,11 +138,14 @@ const crawler = new PlaywrightCrawler({
     // Act on the consent banner if one has been detected
     // @TODO: Should be moved to a postnav hook
     let consent_action_success = false;
-    if(request.userData.detected_consent) {
+    let variant_name;
+    if(request.userData.cmp_detected) {
       try {
-        await request.userData.consent_handler.playbooks.reject(page, log);
-        await page.waitForTimeout(5000);
-        consent_action_success = true;
+        const actionSuccess = await bannerHandler(page, request.userData.banner_handler, 'reject');
+        console.log(actionSuccess);
+        await page.waitForTimeout(3000);
+        consent_action_success = actionSuccess.success;
+        variant_name = actionSuccess?.variant_name;
       } catch(e) {
         log.error('Consent banner click failed');
         if(e instanceof Error) {
@@ -142,7 +163,9 @@ const crawler = new PlaywrightCrawler({
     // This is the data to save for analysis
     const data: CrawlData = {
       target_url: request.url,
-      consent_banner: request.userData.detected_consent,
+      cmp_banner_variant: variant_name,
+      cmp_detected: request.userData.cmp_detected,
+      cmp_name: request.userData.cmp_name,
       consent_action: 'REJECT',
       consent_action_success: consent_action_success,
       crawl_geo: 'EU',
@@ -154,6 +177,7 @@ const crawler = new PlaywrightCrawler({
     // This is a rough check in place of real validation in case a proxy sputters out and fails
     // or the crawl fails due to any kind of bot deterrent.
     if(request.userData.requests.length > 3) {
+      log.info('Wrote Result');
       await store.setValue(filename, data);
     } else {
       log.warning('Skipping file save');
@@ -166,7 +190,30 @@ const crawler = new PlaywrightCrawler({
 });
 
 // Start the crawl
-await crawler.run(startUrls);
-
+//await crawler.run(['https://www.bleepingcomputer.com']);
+await crawler.run([
+  'https://www.bleepingcomputer.com',
+  'https://www.civicuk.com/cookie-control/',
+  'https://businessinsider.com.pl/',
+  'https://www.cookiebot.com/',
+  'https://us.as.com/',
+  'http://eurogamer.net',
+  'http://msdmanuals.com',
+  'https://www.forbes.com/',
+  'https://fortune.com/',
+  'https://www.pentasoft.it/',
+  'https://www.fightfear.us/',
+  'http://hustleforhumanity.org/',
+  'https://ekilu.com/es',
+  'https://ogury.com/',
+  'https://tasty-cat.net/',
+  'https://www.klatsch-tratsch.de/',
+  'https://www.wisst-ihr-noch.de/',
+  'https://www.asiakastieto.fi/web/fi/',
+  'https://videnskab.dk/',
+  'https://borsenfordelsklub.dk/',
+  'https://www.finect.com/',
+  'https://www.lasexta.com/'
+])
 // Exit out once crawl the crawl is done
 process.exit();
