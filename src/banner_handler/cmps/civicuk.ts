@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const civicHandler: BannerHandler = {
   name: 'Civic',
   url: 'civicuk.com/cookie-control/',
+  cmpId: 259,
   variants: [
     {
       name: 'Main Variant',

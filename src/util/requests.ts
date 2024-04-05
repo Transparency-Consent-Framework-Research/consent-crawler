@@ -1,6 +1,7 @@
 import { Request } from 'playwright';
 
 export type FormattedRequest = {
+  session_id: string;
   is_navigation_request: boolean;
   method: string;
   url: string;
@@ -23,10 +24,11 @@ const build_redirect_chain = (request: Request, chain: string[]): Function | str
   }
 };
 
-export const make_formatted_request = async (request: Request): Promise<FormattedRequest> => {
+export const make_formatted_request = async (session_id: string, request: Request): Promise<FormattedRequest> => {
   const redirect_chain = build_redirect_chain(request, []);
   const all_headers = await request.allHeaders();
   return {
+    session_id: session_id,
     is_navigation_request: request.isNavigationRequest(),
     method: request.method(),
     url: request.url(),

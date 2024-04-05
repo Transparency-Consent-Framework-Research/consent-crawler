@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const oneTrustHandler: BannerHandler = {
   name: 'One Trust',
   url: 'cdn.cookielaw.org/scripttemplates/otSDKStub.js',
+  cmpId: 28,
   variants: [
     {
       name: 'Main Variant',

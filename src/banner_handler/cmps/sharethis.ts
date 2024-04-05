@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const shareThisHandler:BannerHandler = {
   name: 'ShareThis',
   url: 'sharethis.mgr.consensu.org',
+  cmpId: 25,
   variants: [
     {
       name: 'Main Variant',

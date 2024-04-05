@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const trustArcHandler: BannerHandler = {
   name: 'TrustArc',
   url: 'consent.trustarc.com/notice',
+  cmpId: 47,
   variants: [
     {
       name: 'Variant - Modal Type1',

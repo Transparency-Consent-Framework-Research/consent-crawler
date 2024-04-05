@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const shinyStatHandler:BannerHandler = {
   name: 'ShinyStat',
   url: 'shinystat.com',
+  cmpId: 96,
   variants: [
     {
       name: 'Main Variant',
