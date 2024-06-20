@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const sibboHandler:BannerHandler = {
   name: 'Sibbo',
   url: 'tv.sibbo.net',
+  cmpId: 76,
   variants: [
     {
       name: 'Main Variant',

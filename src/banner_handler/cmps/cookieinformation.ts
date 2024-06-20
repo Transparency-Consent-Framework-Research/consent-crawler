@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const cookieInfoHandler:BannerHandler = {
   name: 'Cookie Information APS',
   url: 'cookieinformation.mgr.consensu.org',
+  cmpId: 162,
   variants: [
     {
       name: 'Main Variant',

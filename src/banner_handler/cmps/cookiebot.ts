@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const cookiebotHandler: BannerHandler = {
   name: 'CookieBot',
   url: 'cookiebot.com',
+  cmpId: 134,
   variants: [
     {
       name: 'Variant - Selection - CheckBox',

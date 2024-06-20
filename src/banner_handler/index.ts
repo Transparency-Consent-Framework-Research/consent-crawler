@@ -7,6 +7,7 @@ import { civicHandler } from './cmps/civicuk.js';
 import { cmpHandler } from './cmps/cmp.js';
 import { cookiebotHandler } from './cmps/cookiebot.js';
 import { didomiHandler } from './cmps/didomi.js';
+import { inmobiHandler } from './cmps/inmobi.js';
 import { oneTrustHandler } from './cmps/onetrust.js';
 import { trustArcHandler } from './cmps/trustarc.js';
 import { shinyStatHandler } from './cmps/shinystat.js';
@@ -20,6 +21,7 @@ import { transfonHandler } from './cmps/transfon.js';
 export type BannerHandler = {
   name: string;
   url: string;
+  cmpId: number;
   preActionHook?: (page: Page) => Promise<void>;
   variants: Array<
     {
@@ -36,49 +38,53 @@ export type DetectResult = {
   handler: BannerHandler | null;
 }
 
-export const detector = (log: Log) => {
+export const handlers: BannerHandler[] = [
+  // automatticHandler,
+  quantcastHandler,
+  civicHandler,
+  cmpHandler,
+  cookiebotHandler,
+  // complianzBv,
+  didomiHandler,
+  // ezoicHandler,
+  inmobiHandler,
+  oneTrustHandler,
+  trustArcHandler,
+  shinyStatHandler,
+  sibboHandler,
+  shareThisHandler,
+  // liveRampHandler,
+  // mediavineHandler,
+  oguryHandler,
+  gmbhHandler,
+  cookieInfoHandler,
+  transfonHandler,
+  // iubendaHandler,
+  // sourcepointHandler,
+  // sidataHandler,
+  // appConsentHandler,
+  // userCentricsHandler,
+];
 
-  log.info('Initialized Banner Handler')
+const handlersMap = new Map<number, BannerHandler>();
 
-  const handlers = [
-    quantcastHandler,
-    civicHandler,
-    cmpHandler,
-    cookiebotHandler,
-    didomiHandler,
-    oneTrustHandler,
-    trustArcHandler,
-    shinyStatHandler,
-    sibboHandler,
-    shareThisHandler,
-    oguryHandler,
-    gmbhHandler,
-    cookieInfoHandler,
-    transfonHandler,
-  ];
-
-  const detectCmp = (url :string): DetectResult => {
-    for (const handler of handlers) {
-      if(url.includes(handler.url)) {
-        return {
-          match: true,
-          handler: handler,
-        }
-      }
-    }
-    return {
-      match: false,
-      handler: null,
-    }
-  };
-
-  return {
-    handlers,
-    detectCmp
+for (const handler of handlers) {
+  if(handler.cmpId > 0) {
+    handlersMap.set(handler.cmpId, handler);
+  } else {
+    console.warn(`Handler ${handler.name} has no cmpId, skipping.`);
   }
 }
 
-export const bannerHandler = async (page: Page, handler: BannerHandler, action: 'accept' | 'reject' = 'reject') => {
+export const handleBanner = async (cmpId: number, page: Page, action: 'accept' | 'reject' = 'reject', log: any) => {
+  log.info(`Handling Banner for ${cmpId} - ${action}`);
+  const handler = handlersMap.get(cmpId);
+  if(!handler) {
+    return {
+      variant_name: 'No CMP handler found',
+      success: false
+    }
+  }
 
   if(typeof handler.preActionHook === 'function') {
     await handler.preActionHook(page);
@@ -86,29 +92,36 @@ export const bannerHandler = async (page: Page, handler: BannerHandler, action: 
   }
 
   const actionResult: any = {
-    variant_name: 'none',
+    variant_name: 'Unknown variant',
     success: false,
   }
 
+  log.info(`Checking for ${handler.name} variants. ${handler.variants.length} variants.`)
   for (const variant of handler.variants) {
     const check = await variant.check(page);
+    log.info(`Variant ${variant.name} check: ${check}`)
     if(check === true) {
-      console.log(`Detected variant: ${variant.name}`);
+      log.info(`Detected variant: ${variant.name}`);
       actionResult.variant_name = variant.name;
       try {
         await variant[action](page);
-        console.log('Variant action complete');
+        log.info('✅ Variant action complete');
         actionResult.success = true;
       } catch(e) {
         if(e instanceof Error) {
-          console.log('Variant action error', e.message);
+          console.log('🔴 Variant action error', e.message);
         }
       }
-      return actionResult;
+
+      if(actionResult.success === true) {
+        return actionResult;
+      }
+      log.info(`❌ Variant action failed, trying next variant available.`);
     }
   }
-  console.log('No variant action performed.');
+
   return {
-    success: false
-  };
+    match: false,
+    handler: null,
+  }
 }

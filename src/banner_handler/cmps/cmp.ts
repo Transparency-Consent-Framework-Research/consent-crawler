@@ -5,6 +5,7 @@ import { BannerHandler } from '../index.js';
 export const cmpHandler: BannerHandler = {
   name: 'CMP',
   url: 'dl.cmp.min.js',
+  cmpId: 0,
   variants: [
     {
       name: 'Main Variant',

@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const gmbhHandler:BannerHandler = {
   name: 'Multimedia Internet Services GmbH',
   url: 'consentserve.mgr.consensu.org',
+  cmpId: 316,
   variants: [
     {
       name: 'Main Variant',

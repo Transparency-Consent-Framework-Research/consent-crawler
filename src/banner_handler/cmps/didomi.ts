@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const didomiHandler: BannerHandler = {
   name: 'Didomi',
   url: 'sdk.privacy-center.org',
+  cmpId: 7,
   variants: [
     {
       name: 'Variant - Accept Only - No Reject Option (Subscription Required)',

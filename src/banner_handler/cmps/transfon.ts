@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const transfonHandler:BannerHandler = {
   name: 'Transfon',
   url: 'cmp.uniconsent.com',
+  cmpId: 68,
   variants: [
     {
       name: 'Main Variant',

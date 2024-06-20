@@ -4,6 +4,7 @@ import { BannerHandler } from '../index.js';
 export const oguryHandler:BannerHandler = {
   name: 'Ogury',
   url: 'consent-manager-events.ogury.io',
+  cmpId: 45,
   variants: [
     {
       name: 'Main Variant',
