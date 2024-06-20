@@ -8,3 +8,5 @@ crawlee_storage
 storage
 PERSONAL_NOTES.md
 gcp-keys.json
+constants.ts
+data
