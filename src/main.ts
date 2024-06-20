@@ -1,130 +1,157 @@
-import { PlaywrightCrawler, ProxyConfiguration, Configuration, KeyValueStore } from 'crawlee';
+//@ts-nocheck
+import crypto from 'crypto';
+import dayjs from "dayjs";
+import { PlaywrightCrawler, ProxyConfiguration, RequestList } from 'crawlee';
 import { Request, Cookie  } from 'playwright';
 import { make_formatted_request, FormattedRequest } from './util/requests.js';
 import { make_target_list } from './util/target_list.js';
-import { banners } from './util/cmp_banners.js';
+import { save_crawl } from './util/bigquery.js';
+import { handleBanner } from './banner_handler/index.js';
+import { find_and_decode, make_boolean_rows } from './util/string_decoder.js'
+import { scrapeTargetListPath, proxyUrls } from './constants.js';
 
-type CrawlData = {
+export type CrawlData = {
+  session_id: string;
   target_url: string;
-  consent_banner: boolean;
+  tcfapi_detected: boolean;
+  cmp_detected: boolean;
+  cmp_id?: number;
+  cmp_name?: string;
+  cmp_banner_variant?: string;
   consent_action: "ACCEPT" | "REJECT" | "NONE";
-  consent_action_success: boolean;
+  consent_action_success?: boolean;
+  consent_action_timestamp: string;
   crawl_geo: string,
   crawl_ip: string,
   requests: FormattedRequest[],
-  cookies: Cookie[]
+  cookies: Cookie[],
+  parsed_strings?: any,
+  parsed_strings_boolean?: any,
+  action_object?: string,
 }
 
 // Open a CSV list of domains and turn into an array of target URLs
-const startUrls = await make_target_list('./data/top100k.csv');
+const startUrls = await make_target_list(scrapeTargetListPath);
 
-// Open a storage handler to store crawl results
-// See: https://crawlee.dev/docs/guides/result-storage#key-value-store
-const store = await KeyValueStore.open();
+console.log('Loading Request List');
+const requestList = await RequestList.open('tranco-top-1m-v2', startUrls);
+console.log('Request List Loaded');
 
 const crawler = new PlaywrightCrawler({
   // Takes array of http(s) or socks5 proxies, they are used in a round-robin fashion between 
   // target domains in the queue
-  // proxyConfiguration: new ProxyConfiguration({
-  //   proxyUrls: [
-  //     'http://1.2..4:1234', // http(s) or socks5 proxy URL
-  //     ],
-  // }),
+  proxyConfiguration: new ProxyConfiguration({
+    proxyUrls:proxyUrls
+  }), 
+  requestList: requestList,
   launchContext: {
     // Here you can set options that are passed to the playwright .launch() function.
     launchOptions: {
-      headless: false,
+      headless: true,
     },
     // This along with persistCookiesPerSession attempt to ensure a clean session for every domain
     useIncognitoPages: true,
   },
   // Set the number of concurrent crawling instances
-  maxConcurrency: 1,
+  maxConcurrency: 7,
   // Disable cookie persistance to ensure a clean session for every URL
   persistCookiesPerSession: false,
   // Hooks to run before navigation starts on a give ncrawl
   preNavigationHooks: [
+    async ({ blockRequests }) => {
+      await blockRequests();
+    },
     // Announce the crawl and set navigation settings
     (crawlingContext, gotoOptions) => {
-      crawlingContext.log.info(`Crawl ${crawlingContext.id} - ${crawlingContext.request.uniqueKey}`);
+      crawlingContext.request.userData.session_id = crypto.randomUUID();
+      crawlingContext.log.info(`Crawling ${crawlingContext.request.uniqueKey}`);
       if(gotoOptions) {
-        gotoOptions.timeout = 30_000;
+        gotoOptions.timeout = 60_000;
         gotoOptions.waitUntil = 'networkidle';
       }
     },
-    // Optional request blocking when needing to save proxy bandwidth (unconfirmed if it affects quality)
-    async ({ blockRequests }) => {
-      await blockRequests({
-        extraUrlPatterns: ['.mp4', '.mov', '.flv', '.webm', '.mkv'],
-      });
-    },
     // Mount network request listener and push formatted request 
     async (crawlingContext) => {
+      
       crawlingContext.request.userData.requests = [];
-
       const { page } = crawlingContext;
       page.on('request', async (request: Request) => {
-        // Log only any navigation request to reduce log noise (this is totally optional)
-        if(request.isNavigationRequest()) {
-          crawlingContext.log.info(`>> ${request.method()} - ${request.url().substring(0, 40)}`);
-        }
-
         try {
           // format and push the request into session storage
-          const formatted_request =  await make_formatted_request(request);
+          const formatted_request =  await make_formatted_request(crawlingContext.request.userData.session_id, request);
           crawlingContext.request.userData.requests.push(formatted_request);
         } catch(e) {
-          crawlingContext.log.error(`Unable to make_formatted_request`);
+          // crawlingContext.log.error(`Unable to make_formatted_request`);
         }
       });
     },
-    // Detect consent banners
     async (crawlingContext) => {
-      crawlingContext.request.userData.detected_consent = false;
       const { page } = crawlingContext;
-      page.on('request', async (request: Request) => {
-        // Stop checking every request once consent is detected once
-        if(crawlingContext.request.userData.detected_consent) {
-          return;
+      crawlingContext.request.userData.tcfapi_detected = false;
+      crawlingContext.request.userData.cmp_detected = false;
+      crawlingContext.request.userData.cmp_name = undefined;
+      crawlingContext.request.userData.cmp_banner_variant = undefined;
+      crawlingContext.request.userData.consent_action_success = false;
+      crawlingContext.request.userData.consent_action_timestamp = undefined;
+      crawlingContext.request.userData.cmp_id = null;
+      crawlingContext.request.userData.actionObject = null;
+      await page.exposeBinding('_tcBinding', async ({ frame }, value) => {
+        //@ts-ignore
+        crawlingContext.log.info(`${page.url()} consent update for ${frame._guid}`);
+
+        if(!crawlingContext.request.userData.tcfapi_detected) {
+          crawlingContext.request.userData.tcfapi_detected = true;
         }
 
-        // Iterate over incoming requests to any CMP's SDK by matching against the request URL
-        for (let index = 0; index < banners.length; index++) {
-          const banner = banners[index];
-          crawlingContext.log.debug(`Checking URL for presence of ${banner.name}`);
-          const url = request.url();
-          // If a network request matches the CMP url fragment, update the session state
-          // to indicate detection
-          if(url.indexOf(banner.url) > 0) {
-            crawlingContext.log.info(`🎇 CMP Detected! ${banner.name}`);
-            crawlingContext.request.userData.detected_consent = true;
-            crawlingContext.request.userData.detected_consent_name = banner.name;
-            // This is suboptimal, passing the entire handler to execute when navigation is complete
-            // @TODO - Refactor to support evaluating multiple handlers in case of many variants for 
-            // one CMP.
-            crawlingContext.request.userData.consent_handler = banner;
+        if(value.success) {
+          crawlingContext.log.info(`📣 TCFAPI Event ${value.data.cmpId} ${value.data.eventStatus}`)
+          if(!crawlingContext.request?.userData.cmp_id) {
+            crawlingContext.request.userData.cmp_id = value.data.cmpId;
+          }
+
+          if(value.data?.eventStatus === 'useractioncomplete' && !crawlingContext.request.userData.consent_action_success) {
+            crawlingContext.log.info('✅ Action success');
+            crawlingContext.request.userData.consent_action_success = true;
+            crawlingContext.request.userData.consent_action_timestamp = dayjs().format('YYYY-MM-DD HH:mm:ss'),
+            crawlingContext.request.userData.actionObject = JSON.stringify(value.data);
           }
         }
+      });
+
+      await page.addInitScript(async () => {
+        const apiInterval = setInterval(() => {
+          //@ts-ignore
+          if(window.__tcfapi !== undefined) {
+            //@ts-ignore
+            window.__tcfapi('addEventListener', 2, (tcData, success) => {
+            //@ts-ignore
+              window._tcBinding({
+                success: success,
+                data: tcData,
+              });
+            });
+            clearInterval(apiInterval);
+          } else {
+            //@ts-ignore
+            console.log('not defined', window.__tcfapi);
+          }
+        }, 1000);
       });
     }
   ],
   // Executes after postnav hooks
   requestHandler: async({page, request, log, proxyInfo}) => {
-    // Set a safe filename to identify the crawl
-    const url = new URL(request.url);
-    // This removes any unsafe characters in favor of underscores
-    const url_safe = url.hostname.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    // We create a filename from the url and the random request ID assigned to this domain
-    const filename = `${url_safe}--${request.id}`;
-
     // Act on the consent banner if one has been detected
     // @TODO: Should be moved to a postnav hook
-    let consent_action_success = false;
-    if(request.userData.detected_consent) {
+    // let consent_action_success = false;
+    let variant_name;
+    if(request.userData.cmp_id) {
       try {
-        await request.userData.consent_handler.playbooks.reject(page, log);
-        await page.waitForTimeout(5000);
-        consent_action_success = true;
+        const actionSuccess = await handleBanner(request.userData.cmp_id, page, 'reject', log);
+        console.log(actionSuccess);
+        await page.waitForTimeout(3000);
+        // consent_action_success = actionSuccess.success;
+        variant_name = actionSuccess?.variant_name;
       } catch(e) {
         log.error('Consent banner click failed');
         if(e instanceof Error) {
@@ -137,26 +164,42 @@ const crawler = new PlaywrightCrawler({
     const cookies = await page.context().cookies();
 
     log.info(`✅ Loaded: ${request.url}`);
-    log.info(`${request.userData.requests.length} requests, ${cookies.length} cookies`);
 
+    const parsed_strings = find_and_decode(request.userData.session_id, request.userData.requests, cookies);
+    const parsed_strings_boolean = make_boolean_rows(parsed_strings, request.userData.session_id, request.url);
+
+    // console.log(request.userData);
     // This is the data to save for analysis
     const data: CrawlData = {
+      session_id: request.userData.session_id,
       target_url: request.url,
-      consent_banner: request.userData.detected_consent,
+      tcfapi_detected: request.userData.tcfapi_detected,
+      cmp_banner_variant: variant_name,
+      cmp_id: request.userData.cmp_id,
+      cmp_detected: request.userData.cmp_detected,
+      cmp_name: request.userData.cmp_name,
       consent_action: 'REJECT',
-      consent_action_success: consent_action_success,
+      consent_action_success: request.userData.consent_action_success,
+      consent_action_timestamp: request.userData.consent_action_timestamp,
+      action_object: request.userData.actionObject,
       crawl_geo: 'EU',
       crawl_ip: proxyInfo?.hostname ?? 'n/a',
       requests: request.userData.requests,
       cookies: cookies,
+      parsed_strings: parsed_strings,
+      parsed_strings_boolean: parsed_strings_boolean,
     };
+
+    log.info(`Action ${(request.userData.consent_action_success ? 'Success' : 'Failure')} | ${data.requests.length} requests, ${cookies.length} cookies, ${data.parsed_strings.length} TC strings`);
 
     // This is a rough check in place of real validation in case a proxy sputters out and fails
     // or the crawl fails due to any kind of bot deterrent.
     if(request.userData.requests.length > 3) {
-      await store.setValue(filename, data);
+      log.info('⌛ Inserting data into BigQuery');
+      await save_crawl(data);
+      log.info('💾 Insert Complete\n');
     } else {
-      log.warning('Skipping file save');
+      log.warning('🟡 Skipping file save\n');
     }
   },
 
@@ -166,7 +209,8 @@ const crawler = new PlaywrightCrawler({
 });
 
 // Start the crawl
-await crawler.run(startUrls);
+console.log(`Crawlign ${startUrls.length} URLs`);
+await crawler.run();
 
 // Exit out once crawl the crawl is done
 process.exit();
