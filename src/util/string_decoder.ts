@@ -240,7 +240,7 @@ export const find_and_decode = (session_id: string, requests: FormattedRequest[]
     } catch(e) {}
   }
 
-  console.log(`Found ${parsed_strings.length} gdpr strings in ${session_id}`);
+  console.log(`[Decoder] Found ${parsed_strings.length} gdpr strings in ${session_id}`);
   return parsed_strings;
 };
 

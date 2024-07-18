@@ -3,63 +3,58 @@ import crypto from 'crypto';
 import dayjs from "dayjs";
 import { PlaywrightCrawler, ProxyConfiguration, RequestList } from 'crawlee';
 import { Request, Cookie  } from 'playwright';
+import { handleBanner } from './banner_handler/index.js';
+
 import { make_formatted_request, FormattedRequest } from './util/requests.js';
 import { make_target_list } from './util/target_list.js';
 import { save_crawl } from './util/bigquery.js';
-import { handleBanner } from './banner_handler/index.js';
 import { find_and_decode, make_boolean_rows } from './util/string_decoder.js'
-import { scrapeTargetListPath, proxyUrls } from './constants.js';
 
-export type CrawlData = {
-  session_id: string;
-  target_url: string;
-  tcfapi_detected: boolean;
-  cmp_detected: boolean;
-  cmp_id?: number;
-  cmp_name?: string;
-  cmp_banner_variant?: string;
-  consent_action: "ACCEPT" | "REJECT" | "NONE";
-  consent_action_success?: boolean;
-  consent_action_timestamp: string;
-  crawl_geo: string,
-  crawl_ip: string,
-  requests: FormattedRequest[],
-  cookies: Cookie[],
-  parsed_strings?: any,
-  parsed_strings_boolean?: any,
-  action_object?: string,
+import { type CrawlData } from './types/data.js';
+export { CrawlData } from './types/data.js';
+import { CONSTANTS } from './constants.js';
+
+let startUrls = [];
+let requestList = undefined;
+
+if(CONSTANTS.DEV_MODE) {
+  console.log('✨ Dev mode ON, Crawling', CONSTANTS.DEV_URL);
+  console.log(`Use Proxy: ${CONSTANTS.USE_PROXY}, Headless: ${CONSTANTS.HEADLESS}`);
+  startUrls.push(CONSTANTS.DEV_URL);
+} else {
+  // Open a CSV list of domains and turn into an array of target URLs
+  startUrls = await make_target_list(CONSTANTS.SCRAPE_TARGET_LIST_PATH);
+
+  console.log('Loading Request List');
+  requestList = await RequestList.open('tranco-top-1m-v2', startUrls);
+  console.log('Request List Loaded');
 }
-
-// Open a CSV list of domains and turn into an array of target URLs
-const startUrls = await make_target_list(scrapeTargetListPath);
-
-console.log('Loading Request List');
-const requestList = await RequestList.open('tranco-top-1m-v2', startUrls);
-console.log('Request List Loaded');
 
 const crawler = new PlaywrightCrawler({
   // Takes array of http(s) or socks5 proxies, they are used in a round-robin fashion between 
   // target domains in the queue
-  proxyConfiguration: new ProxyConfiguration({
-    proxyUrls:proxyUrls
-  }), 
+  proxyConfiguration: CONSTANTS.USE_PROXY ? new ProxyConfiguration({
+    proxyUrls: CONSTANTS.PROXY_URLS
+  }) : undefined, 
   requestList: requestList,
   launchContext: {
     // Here you can set options that are passed to the playwright .launch() function.
     launchOptions: {
-      headless: true,
+      headless: CONSTANTS.HEADLESS,
     },
     // This along with persistCookiesPerSession attempt to ensure a clean session for every domain
     useIncognitoPages: true,
   },
   // Set the number of concurrent crawling instances
-  maxConcurrency: 7,
+  maxConcurrency: CONSTANTS.CONCURRENCY ?? 1,
   // Disable cookie persistance to ensure a clean session for every URL
   persistCookiesPerSession: false,
   // Hooks to run before navigation starts on a give ncrawl
   preNavigationHooks: [
     async ({ blockRequests }) => {
-      await blockRequests();
+      if(CONSTANTS.ENABLE_MEDIA_BLOCK) {
+        await blockRequests();
+      }
     },
     // Announce the crawl and set navigation settings
     (crawlingContext, gotoOptions) => {
@@ -194,12 +189,12 @@ const crawler = new PlaywrightCrawler({
 
     // This is a rough check in place of real validation in case a proxy sputters out and fails
     // or the crawl fails due to any kind of bot deterrent.
-    if(request.userData.requests.length > 3) {
+    if(request.userData.requests.length > 3 && CONSTANTS.SAVE_TO_BIGQUERY) {
       log.info('⌛ Inserting data into BigQuery');
       await save_crawl(data);
-      log.info('💾 Insert Complete\n');
+      log.info('💾 Insert Complete');
     } else {
-      log.warning('🟡 Skipping file save\n');
+      log.warning('🟡 Skipping file save');
     }
   },
 
@@ -210,7 +205,11 @@ const crawler = new PlaywrightCrawler({
 
 // Start the crawl
 console.log(`Crawlign ${startUrls.length} URLs`);
-await crawler.run();
+if(startUrls.length > 0) {
+  await crawler.run(startUrls);
+} else {
+  console.log('Nothing to Crawl, Exiting.');
+}
 
 // Exit out once crawl the crawl is done
 process.exit();

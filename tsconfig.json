@@ -1,10 +1,11 @@
 {
     "extends": "@apify/tsconfig",
     "compilerOptions": {
-        "module": "ES2022",
+        "module": "NodeNext",
         "target": "ES2022",
-        "outDir": "dist",
+        "outDir": "./dist",
         "noUnusedLocals": false,
+        "moduleResolution": "nodenext",                       /* Specify how TypeScript looks up a file from a given module specifier. */
         "skipLibCheck": true,
         "lib": ["DOM", "ES2022"]
     },

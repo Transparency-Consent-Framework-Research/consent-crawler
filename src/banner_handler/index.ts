@@ -1,22 +1,7 @@
 // import cmps
 import { Page } from 'playwright';
-import { Log } from 'crawlee';
 
-import { quantcastHandler } from './cmps/quantcast.js';
-import { civicHandler } from './cmps/civicuk.js';
-import { cmpHandler } from './cmps/cmp.js';
-import { cookiebotHandler } from './cmps/cookiebot.js';
-import { didomiHandler } from './cmps/didomi.js';
-import { inmobiHandler } from './cmps/inmobi.js';
-import { oneTrustHandler } from './cmps/onetrust.js';
-import { trustArcHandler } from './cmps/trustarc.js';
-import { shinyStatHandler } from './cmps/shinystat.js';
-import { sibboHandler } from './cmps/sibbo.js';
-import { shareThisHandler } from './cmps/sharethis.js';
-import { oguryHandler } from './cmps/ogury.js';
-import { gmbhHandler } from './cmps/gmbh.js';
-import { cookieInfoHandler } from './cmps/cookieinformation.js';
-import { transfonHandler } from './cmps/transfon.js';
+import { importHandlers } from './importer.js';
 
 export type BannerHandler = {
   name: string;
@@ -38,33 +23,8 @@ export type DetectResult = {
   handler: BannerHandler | null;
 }
 
-export const handlers: BannerHandler[] = [
-  // automatticHandler,
-  quantcastHandler,
-  civicHandler,
-  cmpHandler,
-  cookiebotHandler,
-  // complianzBv,
-  didomiHandler,
-  // ezoicHandler,
-  inmobiHandler,
-  oneTrustHandler,
-  trustArcHandler,
-  shinyStatHandler,
-  sibboHandler,
-  shareThisHandler,
-  // liveRampHandler,
-  // mediavineHandler,
-  oguryHandler,
-  gmbhHandler,
-  cookieInfoHandler,
-  transfonHandler,
-  // iubendaHandler,
-  // sourcepointHandler,
-  // sidataHandler,
-  // appConsentHandler,
-  // userCentricsHandler,
-];
+export const handlers: BannerHandler[] = await importHandlers();
+console.log(`Initialized ${handlers.length} Handlers`);
 
 const handlersMap = new Map<number, BannerHandler>();
 
