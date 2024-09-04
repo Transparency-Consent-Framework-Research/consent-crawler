@@ -10,7 +10,9 @@ import { BannerHandler } from './index.js';
 export const importHandlers = async (): Promise<BannerHandler[]> => {
   try {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const checksDirPath = path.join(__dirname, 'cmps/');
+    // const checksDirPath = path.join(__dirname, 'cmps/');
+    // const checksDirPath = path.join(__dirname, 'cmps/');
+    const checksDirPath = path.join(__dirname, 'banner_handler/cmps/');
 
     const globs = glob.sync(`${checksDirPath}/**/*.js`);
 
