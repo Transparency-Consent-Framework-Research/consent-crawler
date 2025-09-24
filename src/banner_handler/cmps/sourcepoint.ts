@@ -27,21 +27,25 @@ export const sourcepointHandler:BannerHandler = {
     {
         name: 'Settings',
         check: async(page: Page) => {const iframe = page.frameLocator('iframe[title="SP Consent Message"]').first();
-          return !!(await iframe.locator('button[title="MANAGE SETTINGS"],button[title="Manage Cookies"],button[title="OPTIONS"],button[title="More Options"],button[title="Instellingen"],button[title="Customise cookies"]').count());},
+          return !!(await iframe.locator('button[title="MANAGE SETTINGS"],button[title="Manage Cookies"],button[title="OPTIONS"],button[title="More Options"],button[title="Instellingen"],button[title="Customise cookies"],button[title="Einstellungen"]').count());},
         accept: async (page: Page) => {
           const iframe = page.frameLocator('iframe[title="SP Consent Message"]').first();
           await iframe.locator('button[title="Accept all"],button[title="Accept All"],button[title="Accept cookies"],button[title="Accept Cookies"],button[title="Yes, I Accept"],button[title="Yes, I accept"],button[title="AGREE"],button[title="Accept"],button[title="Accepteren"],button[title="YES, I AGREE"],button[title="Yes, I\'m happy"]').click();
           page;
         },
-        reject: async (page: Page) => {
-          const iframe = page.frameLocator('iframe[title="SP Consent Message"]').first();
-          await iframe.locator('button[title="MANAGE SETTINGS"],button[title="Manage Cookies"],button[title="OPTIONS"],button[title="More Options"],button[title="Instellingen"],button[title="Customise cookies"]').click();
-          await page.waitForTimeout(3000);
-          const iframeM = page.frameLocator('iframe[title="SP Consent Message"], iframe[title="SP Toestemmingsbericht"]').nth(1);
-          try{await iframeM.locator('button[title="REJECT ALL"],button[title="Reject All"],button[title="Reject all"],button[title="Reject"],button[title="Weigeren"],button[title="Withdraw Consent"]').first().click();}
-          catch (error){await iframeM.locator('button[title="REJECT ALL"],button[title="Reject All"],button[title="Reject all"],button[title="Reject"]').nth(1).click();}
-          console.log('Rejected Succesfully.');
-        }
+        reject: async (page) => {
+                const iframe = page.frameLocator('iframe[title="SP Consent Message"]').first();
+                await iframe.locator('button[title="MANAGE SETTINGS"],button[title="Manage Cookies"],button[title="OPTIONS"],button[title="More Options"],button[title="Instellingen"],button[title="Customise cookies"],button[title="Einstellungen"]').click();
+                await page.waitForTimeout(3000);
+                const iframeM = page.frameLocator('iframe[title="SP Consent Message"], iframe[title="SP Toestemmingsbericht"],iframe[title="Iframe title"]').nth(1);
+                try {
+                    await iframeM.locator('button[title="REJECT ALL"],button[title="Reject All"],button[title="Reject all"],button[title="Reject"],button[title="Weigeren"],button[title="Withdraw Consent"],button[title="Einwilligung für alle widerrufen"]').first().click();
+                }
+                catch (error) {
+                    await iframeM.locator('button[title="REJECT ALL"],button[title="Reject All"],button[title="Reject all"],button[title="Reject"]').nth(1).click();
+                }
+                console.log('Rejected Succesfully.');
+            }
       },
     {
         name: 'Two sets of buttons',
