@@ -44,6 +44,8 @@ const crawler = new PlaywrightCrawler({
   //proxyConfiguration: CONSTANTS.USE_PROXY ? new ProxyConfiguration({
   //  proxyUrls: CONSTANTS.PROXY_URLS
   //}) : undefined, 
+  maxRequestRetries: 3,
+  retryOnBlocked: false,
   proxyConfiguration,
   requestList: requestList,
   launchContext: {
