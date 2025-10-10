@@ -32,6 +32,15 @@ export const ConsentManagerNetHandler: BannerHandler = {
           await page.locator('a.cmpboxbtn.cmpboxbtnreject.cmpboxbtnrejectcustomchoices.cmptxt_btn_no').click();
           console.log('Rejected Succesfully.');
         }
-      }
+      },
+      {
+        name: 'Settings Variant -- no reject all',
+        check: async(page: Page) => !!(await page.locator('a.cmpboxbtn.cmpboxbtnyes.cmpboxbtnyescustomchoices.cmptxt_btn_save').count()),
+        accept: async (_page: Page) => { },
+        reject: async (page: Page) => {
+          await page.locator('a.cmpboxbtn.cmpboxbtnyes.cmpboxbtnyescustomchoices.cmptxt_btn_save').click();
+          console.log('Rejected Succesfully.');
+        }
+      },
   ]
 }
