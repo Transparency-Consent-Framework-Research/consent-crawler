@@ -7,41 +7,55 @@ export const oneTrustHandler: BannerHandler = {
   cmpId: 28,
   variants: [
     {
-      name: 'Main Variant',
+      name: 'Direct Reject Variant',
       check: async (page: Page) => {
-        page;
-        return true;
+        const hasRejectAll = await page.locator('button#onetrust-reject-all-handler').count();
+        const hasDisclosureReject = await page.locator('button#cookie-disclosure-reject').count();
+        return hasRejectAll > 0 || hasDisclosureReject > 0;
       },
       accept: async (page: Page) => {
         await page.locator('button#onetrust-accept-btn-handler').click();
       },
       reject: async (page: Page) => {
-        await page.waitForTimeout(2000);
-        const dontEnableBtn =  !!(await page.locator('button#onetrust-reject-all-handler').isVisible());
-        const rejectBtn =  !!(await page.locator('button#cookie-disclosure-reject').isVisible());
-        if(dontEnableBtn){
+        await page.waitForTimeout(1000);
+        if (await page.locator('button#onetrust-reject-all-handler').isVisible()) {
           await page.locator('button#onetrust-reject-all-handler').click();
-        }
-        else if(rejectBtn){
+        } else if (await page.locator('button#cookie-disclosure-reject').isVisible()) {
           await page.locator('button#cookie-disclosure-reject').click();
         }
-        else {
-          await page.locator('button#onetrust-pc-btn-handler').click();
-          await page.waitForTimeout(1000);
-          const refuseAllBtn = !!(await page.locator('button.ot-pc-refuse-all-handler').isVisible());
-          const rejectAllBtn = !!(await page.locator('button.ot-pc-reject-all-handler').isVisible()); 
-          if(refuseAllBtn){
+        console.log('Rejected successfully via direct button.');
+      },
+    },
+    {
+      name: 'Preference Center Variant',
+      check: async (page: Page) => {
+        const hasPcBtn = await page.locator('button#onetrust-pc-btn-handler').count();
+        return hasPcBtn > 0;
+      },
+      accept: async (page: Page) => {
+        await page.locator('button#onetrust-accept-btn-handler').click();
+      },
+      reject: async (page: Page) => {
+        await page.locator('button#onetrust-pc-btn-handler').click();
+        await page.waitForTimeout(1000);
+
+        // const refuseAllBtn = await page.locator('button.ot-pc-refuse-all-handler').count();
+        // const rejectAllBtn = await page.locator('button.ot-pc-reject-all-handler').count();
+        if (await page.locator('button.ot-pc-refuse-all-handler').isVisible()) {
+          try{
             await page.locator('button.ot-pc-refuse-all-handler').click();
-          }
-          else if(rejectAllBtn){
+          console.log('Rejected via "Refuse All" button.');
+          } catch{console.log('the reject button is not clickable')}
+        } else if (await page.locator('button.ot-pc-reject-all-handler').isVisible()) {
+          try{
             await page.locator('button.ot-pc-reject-all-handler').click();
-          }
-          else{
-            await page.locator('button.save-preference-btn-handler').click();
-          }
+          console.log('Rejected via "Reject All" button.');
+          } catch{console.log('the reject button is not clickable')}
+        } else {
+          await page.locator('button.save-preference-btn-handler').click();
+          console.log('Rejected via saved preferences button.');
         }
-        console.log('Rejected Succesfully.');
-      }
-    }
-  ]
-}
+      },
+    },
+  ],
+};
