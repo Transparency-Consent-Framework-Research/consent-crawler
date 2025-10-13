@@ -63,7 +63,7 @@ export const handleBanner = async (cmpId: number, page: Page, action: 'accept' |
     if(check === true) {
       log.info(`Detected variant: ${variant.name}`);
       actionResult.variant_name = variant.name;
-      try {
+      if (variant.name!=='Paywall'){try {
         await variant[action](page);
         log.info('✅ Variant action complete');
         actionResult.success = true;
@@ -72,8 +72,9 @@ export const handleBanner = async (cmpId: number, page: Page, action: 'accept' |
           console.log('🔴 Variant action error', e.message);
         }
       }
+    }  else{log.info('Paywall detected, skipping action.')}
 
-      if(actionResult.success === true) {
+      if(actionResult.success === true || variant.name === 'Paywall') {
         return actionResult;
       }
       log.info(`❌ Variant action failed, trying next variant available.`);
