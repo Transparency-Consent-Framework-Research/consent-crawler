@@ -221,10 +221,9 @@ const crawler = new PlaywrightCrawler({
                   log.info('TCF Data:', tcfData);
                   request.userData.cmp_id = tcfData.cmpId;
               } 
-              catch (e) {
-                  console.error('Error calling __tcfapi(ping):', e);
-                  resolve(null);
-              }}
+              catch {
+                    log.info('❌ TCFAPI did not appear within 15 seconds');
+                }}
               else {
               log.info('Skipping TCFAPI check — cmp_id already set');
           }
