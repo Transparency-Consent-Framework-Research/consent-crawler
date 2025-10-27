@@ -176,37 +176,116 @@ const crawler = new PlaywrightCrawler({
       postNavigationHooks: [
           async (crawlingContext) => {
               const { page, log, request } = crawlingContext;
-              log.info('Staring PostNav');
+              log.info('Starting PostNav');
               // Check for GPP API
               try {
-                  await page.waitForFunction(() => window.__gpp !== undefined, { timeout: 4_000 });
-                  log.info('✅ GPP API exists');
-                  const gppData = await page.evaluate(() => new Promise((resolve) => window.__gpp('ping', (data, success) => resolve(success ? data : null))));
-                  request.userData.gpp_detected = true;
-                  request.userData.gppData = gppData;
-                  log.info('GPP Data:', gppData);
-              }
-              catch {
-                  log.info('❌ GPP API did not appear within 15 seconds');
-              }
-              // Check for USP API
+                log.info('Checking for GPP API');
+                let gppFound = false;
+
+                for (let i = 0; i < 5; i++) {
+                    const exists = await page.evaluate(() => window.__gpp !== undefined);
+                    if (exists) {
+                        gppFound = true;
+                        log.info(`✅ GPP API found on attempt ${i + 1}`);
+                        break;
+                    }
+                    await page.waitForTimeout(1000); // wait 1 second before next check
+                }
+
+                if (!gppFound) {
+                    log.info('❌ GPP API did not appear after 5 checks (≈4 seconds total)');
+                } else {
+                    const gppData = await page.evaluate(() =>
+                        new Promise((resolve) =>
+                            window.__gpp('ping', (data, success) =>
+                                resolve(success ? data : null)
+                            )
+                        )
+                    );
+                    request.userData.gpp_detected = true;
+                    request.userData.gppData = gppData;
+                    log.info('GPP Data:', gppData);
+                }
+            } catch (err) {
+                log.info('❌ Error while checking GPP API:', err);
+            }
+            // Check for USP API
               try {
-                  log.info('checking if USPAPI exists');
-                  await page.waitForFunction(() => window.__uspapi !== undefined, { timeout: 4_000 });
-                  log.info('✅ USPAPI exists');
-                  const uspData = await page.evaluate(() => new Promise((resolve) => window.__uspapi('getUSPData', 1, (data, success) => resolve(success ? data : null))));
-                  request.userData.uspapi_detected = true;
-                  request.userData.uspData = uspData;
-                  log.info('USP Data:', uspData);
-              }
-              catch {
-                  log.info('❌ USPAPI did not appear within 15 seconds');
-              }
-              if (!request.userData.cmp_id) {try {
-                  log.info('checking if TCFAPI exists');
-                  await page.waitForFunction(() => window.__tcfapi !== undefined, { timeout: 4_000 });
-                  log.info('✅ TCFAPI exists');
-                  const tcfData = await page.evaluate(() => new Promise((resolve) => window.__tcfapi('ping', 2, (pingReturn,success) =>{
+                log.info('Checking for USP API');
+                let uspFound = false;
+
+                for (let i = 0; i < 5; i++) {
+                    const exists = await page.evaluate(() => window.__uspapi !== undefined);
+                    if (exists) {
+                        uspFound = true;
+                        log.info(`✅ USP API found on attempt ${i + 1}`);
+                        break;
+                    }
+                    await page.waitForTimeout(1000); // wait 1 second before next check
+                }
+
+                if (!uspFound) {
+                    log.info('❌ USP API did not appear after 5 checks (≈4 seconds total)');
+                } else {
+                    const uspData = await Promise.race([
+                    page.evaluate(() =>
+                        new Promise((resolve) => {
+                            try {
+                                window.__uspapi('getUSPData', 1, (data, success) => {
+                                    resolve(success ? data : null);
+                                });
+                            } catch (e) {
+                                resolve(null);
+                            }
+                        })
+                    ),
+                    new Promise((resolve) => setTimeout(() => resolve(null), 3000)) // Timeout fallback
+                ]);
+
+                if (uspData) {
+                    request.userData.uspapi_detected = true;
+                    request.userData.uspData = uspData;
+                    log.info('✅ USP Data:', uspData);
+                } else {
+                    log.info('⚠️ USP API detected but did not return data within timeout');
+                }
+                }
+            } catch (err) {
+                log.info('❌ Error while checking USP API:', err);
+            }
+              // Check for USP API
+              //try {
+               //   log.info('checking if USPAPI exists');
+               //   await page.waitForFunction(() => window.__uspapi !== undefined, { timeout: 4_000 });
+               //   log.info('✅ USPAPI exists');
+                //  const uspData = await page.evaluate(() => new Promise((resolve) => window.__uspapi('getUSPData', 1, (data, success) => resolve(success ? data : null))));
+               //   request.userData.uspapi_detected = true;
+               //   request.userData.uspData = uspData;
+               //   log.info('USP Data:', uspData);
+             // }
+             // catch {
+             //     log.info('❌ USPAPI did not appear within 15 seconds');
+             // }
+              if (!request.userData.cmp_id) { 
+                try {
+                log.info('Checking for TCF API');
+                let tcfFound = false;
+
+                for (let i = 0; i < 5; i++) {
+                    const exists = await page.evaluate(() => window.__tcfapi !== undefined);
+                    if (exists) {
+                        tcfFound = true;
+                        log.info(`✅ TCF API found on attempt ${i + 1}`);
+                        break;
+                    }
+                    await page.waitForTimeout(1000); // wait 1 second before next check
+                }
+
+                if (!tcfFound) {
+                    log.info('❌ TCF API did not appear after 5 checks (≈4 seconds total)');
+                } else {
+                    const tcfData = await page.evaluate(() =>
+                            new Promise((resolve) => window.__tcfapi('ping', 2, (pingReturn,success) =>{
                       if (success) {
                           resolve({
                               cmpId: pingReturn.cmpId,
@@ -218,15 +297,16 @@ const crawler = new PlaywrightCrawler({
                       }
   
                   })));
-                  log.info('TCF Data:', tcfData);
-                  request.userData.cmp_id = tcfData.cmpId;
-              } 
-              catch {
-                    log.info('❌ TCFAPI did not appear within 15 seconds');
-                }}
-              else {
-              log.info('Skipping TCFAPI check — cmp_id already set');
-          }
+                    request.userData.tcfapi_detected = true;
+                    //request.userData.tcfData = tcfData;
+                    request.userData.cmp_id = tcfData.cmpId;
+                    log.info('TCF Data:', tcfData);
+                }
+            } catch (err) {
+                log.info('❌ Error while checking TCF API:', err);
+            }} else {
+                log.info('Skipping TCFAPI check — cmp_id already set');
+            }
           }],
                //   crawlingContext.request.userData.tcfapi_detected = true;
                   //request.userData.uspapi_detected = true;
