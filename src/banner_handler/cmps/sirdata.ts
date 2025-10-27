@@ -8,28 +8,14 @@ export const sirdataHandler:BannerHandler = {
   variants: [
     {
       name: 'Main Variant',
-      check: async(page: Page) => !!(await page.locator('div.sd-cmp-3H8D2 button.sd-cmp-1bquj').count()),
+      check: async(page: Page) => !!(await page.locator('span', { hasText: /Do not accept|Continuer sans accepter/i }).count()),
       accept: async (page: Page) => {
-          await page.locator('div.sd-cmp-2yAVI >button').nth(1).click();
-          page;
+          await page.locator('span', { hasText: /Accept all|Tout accepter/i }).click();
       },
       reject: async (page: Page) => {
-          await page.locator('div.sd-cmp-3H8D2 button.sd-cmp-1bquj >span').first().click();
+          await page.locator('span', { hasText: /Do not accept|Continuer sans accepter/i }).first().click();
           console.log('Rejected Succesfully.');
       }
     },
-    {
-        name: '3 in line options Variant',
-        check: async(page: Page) => {const buttonCount = await page.locator('div.sd-cmp-2yAVI button.sd-cmp-1bquj').count();
-            return buttonCount === 3;},
-        accept: async (page: Page) => {
-            await page.locator('div.sd-cmp-2yAVI >button').nth(2).click();
-            page;
-        },
-        reject: async (page: Page) => {
-            await page.locator('div.sd-cmp-2yAVI >button').first().click();
-            console.log('Rejected Succesfully.');
-        }
-      },
   ]
 }
