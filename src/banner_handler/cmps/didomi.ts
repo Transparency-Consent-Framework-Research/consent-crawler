@@ -7,40 +7,51 @@ export const didomiHandler: BannerHandler = {
   cmpId: 7,
   variants: [
     {
-      name: 'Variant - Accept Only - No Reject Option (Subscription Required)',
-      check: async(page: Page) => !!(await page.locator('.jad_cmp_paywall_content').isVisible()),
-      accept: async (page: Page) => {
-        page
+      name: 'Paywall',
+      check: async (page: Page) => {
+        const paywall1 = await page.locator('button[action-name="consentlessSubAccess"]').isVisible().catch(() => false);
+        const paywall2 = await page.locator('button[action-name="disagreeAndSubscribe"]').isVisible().catch(() => false);
+        const paywall3 = await page.locator('a.deny-subscribe').isVisible().catch(() => false);
+        const paywall4 = await page.locator('a.lp-mr_4.lp-font-btn').isVisible().catch(() => false);
+        const paywall5 = await page.locator('a, button, span', { hasText: /S.?abonner.*refuser.*cookies/i }).isVisible().catch(() => false);
+        const paywall6 = await page.locator('a, button, span', { hasText: /rechazar.*pagar/i }).isVisible().catch(() => false);
+        const paywall7 = await page.locator('a, button, span', { hasText: /decline.*subscribe/i }).isVisible().catch(() => false);
+        return paywall1 || paywall2 || paywall3 || paywall4 || paywall5 || paywall6 || paywall7;
       },
-      reject: async (_page: Page) => {
-        console.log('Reject Fail. Variant requires subscription');
+      accept: async (page: Page) => {await page.locator('button[action-name="agreeAll"]').click();},
+      reject: async (_page: Page) => {}
+    },
+    {
+      name: 'Variant - Continue without agreeing',
+      check: async(page: Page) => !!(await page.locator('span.didomi-continue-without-agreeing').count()),
+      accept: async (page: Page) => {
+        await page.locator('button#didomi-notice-agree-button').click();
+      },
+      reject: async (page: Page) => {
+        await page.locator('span.didomi-continue-without-agreeing').click();
       }
     },
     {
-      name: 'Variant - HeaderType1',
-      check: async(page: Page) => !!(await page.locator('#didomi-notice').isVisible()),
+      name: 'Variant - Reject Button - Check if Subscribe',
+      check: async(page: Page) => !!(await page.locator('button#didomi-notice-disagree-button').count()),
       accept: async (page: Page) => {
-        await page.locator('#didomi-notice #didomi-notice-agree-button').click();
-        page
+        await page.locator('button#didomi-notice-agree-button').click();
       },
       reject: async (page: Page) => {
-        await page.locator('#didomi-notice #didomi-notice-learn-more-button').click();
-        await page.waitForTimeout(1000);
-        await page.locator('#didomi-consent-popup div.didomi-consent-popup-actions button:first-child').click();
-        console.log('Rejected Succesfully.');
+        await page.locator('button#didomi-notice-disagree-button').click();
+        console.log('Check if UI action was received.');
       }
     },
     {
-      name: 'Variant - PopupType1',
-      check: async(page: Page) => !!(await page.locator('#didomi-popup').isVisible()),
+      name: 'Variant - Learn More button',
+      check: async(page: Page) => !!(await page.locator('button#didomi-notice-learn-more-button').count()),
       accept: async (page: Page) => {
-        await page.locator('.didomi-popup-view button#didomi-notice-agree-button').click();
-        page
+        await page.locator('#button#didomi-notice-agree-button').click();
       },
       reject: async (page: Page) => {
-        await page.locator('.didomi-popup-view button#didomi-notice-learn-more-button').click();
+        await page.locator('button#didomi-notice-learn-more-button').click();
         await page.waitForTimeout(1000);
-        await page.locator('.didomi-consent-popup-footer .didomi-consent-popup-actions button:first-child').click();
+        await page.locator('button#btn-toggle-disagree').click();
         console.log('Rejected Succesfully.');
       }
     },
