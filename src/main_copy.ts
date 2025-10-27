@@ -7,7 +7,7 @@ import { handleBanner } from './banner_handler/index.js';
 
 import { make_formatted_request, FormattedRequest } from './util/requests.js';
 import { make_target_list } from './util/target_list.js';
-import { save_crawl } from './util/bigquery.js';
+import { save_crawl2 } from './util/bigquery.js';
 import { find_and_decode, make_boolean_rows } from './util/string_decoder.js'
 
 import { type CrawlData } from './types/data.js';
@@ -369,12 +369,27 @@ const crawler = new PlaywrightCrawler({
               parsed_strings: parsed_strings,
               parsed_strings_boolean: parsed_strings_boolean,
           };
+          const data2 = {
+              target_url: request.url,
+              tcfapi_detected: request.userData.tcfapi_detected,
+              cmp_id: request.userData.cmp_id,
+              cmp_banner_variant: variant_name,
+              consent_action_success: consent_action_success,
+              //captures whether event listener was working properly. If consent_Action_success=True and consent_action_success_event_listener=False, 
+              // then the action was forced by postnavhook 
+              consent_action_success_event_listener: request.userData.consent_action_success,
+              uspdata: request.userData.uspData,
+              gppdata: request.userData.gppData,
+              uspapi_exists: request.userData.uspapi_detected,
+              gpp_exists: request.userData.gpp_detected,
+          };
           log.info(`Action ${(consent_action_success ? 'Success' : 'Failure')} | ${data.requests.length} requests, ${cookies.length} cookies, ${data.parsed_strings.length} TC strings`);
+          
           // This is a rough check in place of real validation in case a proxy sputters out and fails
           // or the crawl fails due to any kind of bot deterrent.
           if (request.userData.requests.length > 3 && CONSTANTS.SAVE_TO_BIGQUERY) {
               log.info('⌛ Inserting data into BigQuery');
-              await save_crawl(data);
+              await save_crawl2(data2);
               log.info('💾 Insert Complete');
           }
           else {
