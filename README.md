@@ -28,6 +28,18 @@ Install the [playwright system dependencies](https://playwright.dev/docs/cli#ins
 npx playwright install-deps
 ```
 
+**Arch Linux:** Playwright does not support `install-deps` on Arch, and its bundled Chromium often fails because it expects Debian-style library versions (e.g. libicu74) that don't match Arch's. Use system Chromium instead:
+
+1. Install dependencies and Chromium:
+   ```bash
+   sudo pacman -S --needed icu libxml2 flite libmanette chromium
+   ```
+2. Run the crawler with Playwright pointed at system Chromium:
+   ```bash
+   PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium pnpm run dev:scan
+   ```
+   (Or `pnpm run dev` / `pnpm run start:prod` with the same env var when using the main crawler.)
+
 ## Usage
 Most settings you'll need can be controlled from the `constants.ts` file. When first setting up, copy the contents of `example.constants.ts` into a new file and configuring according to your needs, the defaults are a good place to start.
 

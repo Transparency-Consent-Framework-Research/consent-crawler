@@ -50,6 +50,9 @@ const crawler = new PlaywrightCrawler({
     // Here you can set options that are passed to the playwright .launch() function.
     launchOptions: {
       headless: CONSTANTS.HEADLESS,
+      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && {
+        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+      }),
     },
     // This along with persistCookiesPerSession attempt to ensure a clean session for every domain
     useIncognitoPages: true,

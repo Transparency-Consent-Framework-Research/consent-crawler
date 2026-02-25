@@ -25,3 +25,6 @@ export const CONSTANTS = {
   SCRAPE_TARGET_LIST_PATH: './data/scrape-list.csv',// Scan targets get a light crawl  to detect CMP id
   SCAN_TARGET_LIST_PATH: './data/scan-list.csv'
 }
+
+export const scanTargetListPath = CONSTANTS.SCAN_TARGET_LIST_PATH
+export const proxyUrls = CONSTANTS.PROXY_URLS
