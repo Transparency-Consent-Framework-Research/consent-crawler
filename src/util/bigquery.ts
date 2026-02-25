@@ -23,6 +23,15 @@ export const save_scan = async (data: ScanData) => {
   }
 }
 
+
+export const save_crawl2 = async (data: CrawlData) => {
+  try {
+    await bigquery.dataset('v2p2').table('fall_scan_25').insert(data);
+  } catch(error) {
+    console.log(util.inspect(error, {showHidden: false, depth: null, colors: true}));
+  }
+}
+
 export const save_crawl = async (data: CrawlData) => {
 
   console.log('timestamp', data.consent_action_timestamp);

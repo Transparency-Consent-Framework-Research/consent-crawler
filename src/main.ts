@@ -17,6 +17,14 @@ import { CONSTANTS } from './constants.js';
 let startUrls = [];
 let requestList = undefined;
 
+//process.env.NODE_EXTRA_CA_CERTS = path.resolve("C:/Users/riley/BrightData_ssl.crt");
+const proxyConfiguration = new ProxyConfiguration({
+    proxyUrls: [
+      //'http://brd-customer-hl_58d2833c-zone-residential_proxy1:uxm1p12x3xfd@brd.superproxy.io:33335'
+        'http://brd-customer-hl_58d2833c-zone-isp_proxy1:sc72esntu52f@brd.superproxy.io:33335'
+    ]
+});
+
 if(CONSTANTS.DEV_MODE) {
   console.log('✨ Dev mode ON, Crawling', CONSTANTS.DEV_URL);
   console.log(`Use Proxy: ${CONSTANTS.USE_PROXY}, Headless: ${CONSTANTS.HEADLESS}`);
@@ -33,9 +41,10 @@ if(CONSTANTS.DEV_MODE) {
 const crawler = new PlaywrightCrawler({
   // Takes array of http(s) or socks5 proxies, they are used in a round-robin fashion between 
   // target domains in the queue
-  proxyConfiguration: CONSTANTS.USE_PROXY ? new ProxyConfiguration({
-    proxyUrls: CONSTANTS.PROXY_URLS
-  }) : undefined, 
+  //proxyConfiguration: CONSTANTS.USE_PROXY ? new ProxyConfiguration({
+  //  proxyUrls: CONSTANTS.PROXY_URLS
+  //}) : undefined, 
+  proxyConfiguration,
   requestList: requestList,
   launchContext: {
     // Here you can set options that are passed to the playwright .launch() function.
@@ -90,12 +99,14 @@ const crawler = new PlaywrightCrawler({
       crawlingContext.request.userData.consent_action_timestamp = undefined;
       crawlingContext.request.userData.cmp_id = null;
       crawlingContext.request.userData.actionObject = null;
+      console.log('TESTING 1')
       await page.exposeBinding('_tcBinding', async ({ frame }, value) => {
         //@ts-ignore
         crawlingContext.log.info(`${page.url()} consent update for ${frame._guid}`);
-
+        
         if(!crawlingContext.request.userData.tcfapi_detected) {
           crawlingContext.request.userData.tcfapi_detected = true;
+          console.log('JUST A TEST');
         }
 
         if(value.success) {
@@ -138,14 +149,15 @@ const crawler = new PlaywrightCrawler({
   requestHandler: async({page, request, log, proxyInfo}) => {
     // Act on the consent banner if one has been detected
     // @TODO: Should be moved to a postnav hook
-    // let consent_action_success = false;
+    let consent_action_success = false;
     let variant_name;
+    log.info(`testing: ${request.userData.cmp_id}`)
     if(request.userData.cmp_id) {
       try {
         const actionSuccess = await handleBanner(request.userData.cmp_id, page, 'reject', log);
         console.log(actionSuccess);
         await page.waitForTimeout(3000);
-        // consent_action_success = actionSuccess.success;
+        consent_action_success = actionSuccess.success;
         variant_name = actionSuccess?.variant_name;
       } catch(e) {
         log.error('Consent banner click failed');
@@ -204,7 +216,7 @@ const crawler = new PlaywrightCrawler({
 });
 
 // Start the crawl
-console.log(`Crawlign ${startUrls.length} URLs`);
+console.log(`Crawling ${startUrls.length} URLs`);
 if(startUrls.length > 0) {
   await crawler.run(startUrls);
 } else {
