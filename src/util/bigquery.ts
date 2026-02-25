@@ -15,18 +15,9 @@ const bigquery = new BigQuery({
   keyFilename: './gcp-keys.json',
 });
 
-export const save_scan = async (data: ScanData) => {
+export const save_to_bigquery = async (dataset: string, table: string, data: Record<string, unknown> | Record<string, unknown>[]) => {
   try {
-    await bigquery.dataset('v2p2').table('publisher_cmp').insert(data);
-  } catch(error) {
-    console.log(util.inspect(error, {showHidden: false, depth: null, colors: true}));
-  }
-}
-
-
-export const save_crawl2 = async (data: CrawlData) => {
-  try {
-    await bigquery.dataset('v2p2').table('fall_scan_25').insert(data);
+    await bigquery.dataset(dataset).table(table).insert(data);
   } catch(error) {
     console.log(util.inspect(error, {showHidden: false, depth: null, colors: true}));
   }

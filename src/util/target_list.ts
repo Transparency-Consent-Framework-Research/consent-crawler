@@ -8,7 +8,7 @@ export const make_target_list = async (filePath: string): Promise<Array<string>>
   
   console.log(domain_array.slice(0,3));
   const urls = domain_array.map(domain => {
-    return `http://${domain}`;
+    return `https://${domain}`;
   });
   return shuffle(urls);
 }

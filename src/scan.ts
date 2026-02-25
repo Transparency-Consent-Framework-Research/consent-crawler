@@ -1,10 +1,11 @@
-//@ts-nocheck
 import crypto from 'crypto';
-import dayjs from "dayjs";
-import { PlaywrightCrawler, ProxyConfiguration, RequestList, Configuration  } from 'crawlee';
+// @ts-expect-error - dayjs has no default export in strict moduleResolution
+import dayjs from 'dayjs';
+import { PlaywrightCrawler, ProxyConfiguration, RequestList } from 'crawlee';
 import { make_target_list } from './util/target_list.js';
-import { save_scan } from './util/bigquery.js';
-import { scanTargetListPath, proxyUrls } from './constants.js';
+import { save_to_bigquery } from './util/bigquery.js';
+// @ts-expect-error - constants.ts may be gitignored; resolved at runtime
+import { CONSTANTS, scanTargetListPath, proxyUrls } from './constants.js';
 
 export type ScanData = {
   publisher_url: string;
@@ -14,44 +15,45 @@ export type ScanData = {
   timestamp: number;
 }
 
-// Get the global configuration
-const config = Configuration.getGlobalConfig();
+// Open a CSV list of domains and turn into an array of target URLs, or use single DEV_URL when DEV_MODE
+const startUrls = CONSTANTS.DEV_MODE
+  ? [CONSTANTS.DEV_URL.startsWith('http') ? CONSTANTS.DEV_URL : `https://${CONSTANTS.DEV_URL}`]
+  : await make_target_list(scanTargetListPath);
 
-// Open a CSV list of domains and turn into an array of target URLs
-// @TODO: Add new tranco top1m
-const startUrls = await make_target_list(scanTargetListPath);
-
-// console.log('Loading Request List');
-// const requestList = await RequestList.open('tranco-top-1m-scan', startUrls);
-// console.log('Request List Loaded');
+console.log('Loading Request List');
+const requestList = await RequestList.open('tranco-top-1m-scan', startUrls);
+console.log('Request List Loaded');
 
 
 const crawler = new PlaywrightCrawler({
   // Takes array of http(s) or socks5 proxies, they are used in a round-robin fashion between 
-  // target domains in the queue
+  // target domains in the queue (only when CONSTANTS.USE_PROXY is true and proxyUrls has entries)
   maxRequestRetries: 2,
   retryOnBlocked: true,
-  proxyConfiguration: new ProxyConfiguration({
-    proxyUrls: proxyUrls
-  }),
+  ...(CONSTANTS.USE_PROXY && proxyUrls?.length
+    ? { proxyConfiguration: new ProxyConfiguration({ proxyUrls }) }
+    : {}),
   launchContext: {
     // Here you can set options that are passed to the playwright .launch() function.
     launchOptions: {
-      headless: true,
+      headless: CONSTANTS.HEADLESS,
+      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && {
+        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+      }),
     },
     // This along with persistCookiesPerSession attempt to ensure a clean session for every domain
     useIncognitoPages: true,
   },
-  // requestList: requestList,
-  // Set the number of concurrent crawling instances
-  maxConcurrency: 7,
+  requestList,
+  maxConcurrency: CONSTANTS.CONCURRENCY ?? 7,
   // Disable cookie persistance to ensure a clean session for every URL
   persistCookiesPerSession: false,
   // Hooks to run before navigation starts on a give ncrawl
   preNavigationHooks: [
     async ({ blockRequests }) => {
-      // Block all requests to URLs that include `adsbygoogle.js` and also all defaults.
-      await blockRequests();
+      if (CONSTANTS.ENABLE_MEDIA_BLOCK) {
+        await blockRequests();
+      }
     },
     // Announce the crawl and set navigation settings
     (crawlingContext, gotoOptions) => {
@@ -69,16 +71,14 @@ const crawler = new PlaywrightCrawler({
       crawlingContext.request.userData.cmp_id = null;
     
 
-      await page.exposeBinding('_tcBinding', async ({ frame }, value) => {
-        //@ts-ignore
-        crawlingContext.log.info(`${page.url()} consent update for ${frame._guid}`);
+      await page.exposeBinding('_tcBinding', async (_context: unknown, value: { success: boolean; data?: { cmpId?: number } }) => {
+        crawlingContext.log.info(`${page.url()} consent update`);
 
         if(!crawlingContext.request.userData?.tcfapi_detected) {
           crawlingContext.request.userData.tcfapi_detected = true;
         }
 
-        console.log(value);
-        if(value.success) {
+        if(value.success && value.data?.cmpId != null) {
           if(!crawlingContext.request?.userData.cmp_id) {
             crawlingContext.request.userData.cmp_id = value.data.cmpId;
           }
@@ -86,21 +86,23 @@ const crawler = new PlaywrightCrawler({
       });
 
       await page.addInitScript(async () => {
+        const maxChecks = 10;
+        let checks = 0;
         const apiInterval = setInterval(() => {
+          checks += 1;
           //@ts-ignore
-          if(window.__tcfapi !== undefined) {
+          if (window.__tcfapi !== undefined) {
             //@ts-ignore
             window.__tcfapi('addEventListener', 2, (tcData, success) => {
-            //@ts-ignore
+              //@ts-ignore
               window._tcBinding({
                 success: success,
                 data: tcData,
               });
             });
             clearInterval(apiInterval);
-          } else {
-            //@ts-ignore
-            console.log('not defined', window.__tcfapi);
+          } else if (checks >= maxChecks) {
+            clearInterval(apiInterval);
           }
         }, 1000);
       });
@@ -119,16 +121,18 @@ const crawler = new PlaywrightCrawler({
       timestamp: dayjs().unix(),
     };
 
-    if(scanData.tcfapi_detected) {
-      console.log('✨✨✨✨',scanData, '✨✨✨✨');
+    if (scanData.tcfapi_detected) {
+      log.info('TCF API detected', { cmp_id: scanData.cmp_id });
     }
 
-    await save_scan(scanData);
+    if (CONSTANTS.SAVE_TO_BIGQUERY) {
+      await save_to_bigquery('v2p2', 'publisher_cmp', scanData);
+    }
 
   },
 
-  async failedRequestHandler({ request }) {
-    console.log(`${request.url} 'failed`);
+  async failedRequestHandler({ request, log }) {
+    log.warning(`${request.url} failed`);
     const scanData: ScanData = {
       publisher_url: request.url,
       tcfapi_detected: false,
@@ -136,14 +140,15 @@ const crawler = new PlaywrightCrawler({
       crawl_reason: 'Tranco Top 1M - Failure',
       timestamp: dayjs().unix(),
     };
-    await save_scan(scanData);
-    console.log(`Saved Failed Crawl - ${request.url}`);
+    if (CONSTANTS.SAVE_TO_BIGQUERY) {
+      await save_to_bigquery('v2p2', 'publisher_cmp', scanData);
+    }
   }
 });
 
 // Start the crawl
-console.log(`Crawlign ${startUrls.length} URLs`);
-await crawler.run(startUrls);
+console.log(`Crawling ${startUrls.length} URLs`);
+await crawler.run();
 
 // Exit out once crawl the crawl is done
 process.exit();

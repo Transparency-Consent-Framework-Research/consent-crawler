@@ -7,7 +7,7 @@ import { handleBanner } from './banner_handler/index.js';
 
 import { make_formatted_request, FormattedRequest } from './util/requests.js';
 import { make_target_list } from './util/target_list.js';
-import { save_crawl2 } from './util/bigquery.js';
+import { save_to_bigquery } from './util/bigquery.js';
 import { find_and_decode, make_boolean_rows } from './util/string_decoder.js'
 
 import { type CrawlData } from './types/data.js';
@@ -389,7 +389,7 @@ const crawler = new PlaywrightCrawler({
           // or the crawl fails due to any kind of bot deterrent.
           if (request.userData.requests.length > 3 && CONSTANTS.SAVE_TO_BIGQUERY) {
               log.info('⌛ Inserting data into BigQuery');
-              await save_crawl2(data2);
+              await save_to_bigquery('v2p2', 'feb_scan_26', data2);
               log.info('💾 Insert Complete');
           }
           else {
