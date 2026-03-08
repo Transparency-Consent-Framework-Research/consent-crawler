@@ -256,7 +256,7 @@ const crawler = new PlaywrightCrawler({
     }
 
     if (CONSTANTS.SAVE_TO_BIGQUERY) {
-      await save_to_bigquery('v2p2', 'publisher_cmp', scanData);
+      await save_to_bigquery('v2p2', 'feb_scan_26', scanData);
     }
 
   },
@@ -275,7 +275,7 @@ const crawler = new PlaywrightCrawler({
       timestamp: dayjs().unix(),
     };
     if (CONSTANTS.SAVE_TO_BIGQUERY) {
-      await save_to_bigquery('v2p2', 'publisher_cmp', scanData);
+      await save_to_bigquery('v2p2', 'feb_scan_26', scanData);
     }
   }
 });
