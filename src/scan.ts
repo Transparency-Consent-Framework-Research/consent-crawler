@@ -1,16 +1,18 @@
 import crypto from 'crypto';
-// @ts-expect-error - dayjs has no default export in strict moduleResolution
 import dayjs from 'dayjs';
 import { PlaywrightCrawler, ProxyConfiguration, RequestList } from 'crawlee';
 import { make_target_list } from './util/target_list.js';
 import { save_to_bigquery } from './util/bigquery.js';
-// @ts-expect-error - constants.ts may be gitignored; resolved at runtime
 import { CONSTANTS, scanTargetListPath, proxyUrls } from './constants.js';
 
 export type ScanData = {
   publisher_url: string;
   tcfapi_detected: boolean;
   cmp_id: number | null;
+  uspapi_detected: boolean;
+  usp_data: string | null;
+  gpp_detected: boolean;
+  gpp_data: string | null;
   crawl_reason: string;
   timestamp: number;
 }
@@ -69,6 +71,10 @@ const crawler = new PlaywrightCrawler({
 
       crawlingContext.request.userData.tcfapi_detected = false;
       crawlingContext.request.userData.cmp_id = null;
+      crawlingContext.request.userData.uspapi_detected = false;
+      crawlingContext.request.userData.gpp_detected = false;
+      crawlingContext.request.userData.uspData = null;
+      crawlingContext.request.userData.gppData = null;
     
 
       await page.exposeBinding('_tcBinding', async (_context: unknown, value: { success: boolean; data?: { cmpId?: number } }) => {
@@ -108,6 +114,120 @@ const crawler = new PlaywrightCrawler({
       });
     }
   ],
+  postNavigationHooks: [
+    async (crawlingContext) => {
+      const { page, log, request } = crawlingContext;
+
+      // Check for GPP API
+      try {
+        let gppFound = false;
+        for (let i = 0; i < 5; i++) {
+          const exists = await page.evaluate(() => (window as any).__gpp !== undefined);
+          if (exists) {
+            gppFound = true;
+            log.info(`GPP API found on attempt ${i + 1}`);
+            break;
+          }
+          await page.waitForTimeout(1000);
+        }
+
+        if (gppFound) {
+          const gppData = await page.evaluate(() =>
+            new Promise((resolve) =>
+              (window as any).__gpp('ping', (data: unknown, success: boolean) =>
+                resolve(success ? data : null)
+              )
+            )
+          );
+          request.userData.gpp_detected = true;
+          request.userData.gppData = gppData;
+          log.info(`GPP Data: ${JSON.stringify(gppData)}`);
+        }
+      } catch (err) {
+        log.info(`Error checking GPP API: ${err}`);
+      }
+
+      // Check for USP API
+      try {
+        let uspFound = false;
+        for (let i = 0; i < 5; i++) {
+          const exists = await page.evaluate(() => (window as any).__uspapi !== undefined);
+          if (exists) {
+            uspFound = true;
+            log.info(`USP API found on attempt ${i + 1}`);
+            break;
+          }
+          await page.waitForTimeout(1000);
+        }
+
+        if (uspFound) {
+          const uspData = await Promise.race([
+            page.evaluate(() =>
+              new Promise((resolve) => {
+                try {
+                  (window as any).__uspapi('getUSPData', 1, (data: unknown, success: boolean) => {
+                    resolve(success ? data : null);
+                  });
+                } catch {
+                  resolve(null);
+                }
+              })
+            ),
+            new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
+          ]);
+
+          if (uspData) {
+            request.userData.uspapi_detected = true;
+            request.userData.uspData = uspData;
+            log.info(`USP Data: ${JSON.stringify(uspData)}`);
+          } else {
+            log.info('USP API detected but did not return data within timeout');
+          }
+        }
+      } catch (err) {
+        log.info(`Error checking USP API: ${err}`);
+      }
+
+      // TCF fallback: if cmp_id wasn't set by the event listener, try ping
+      if (!request.userData.cmp_id) {
+        try {
+          let tcfFound = false;
+          for (let i = 0; i < 5; i++) {
+            const exists = await page.evaluate(() => (window as any).__tcfapi !== undefined);
+            if (exists) {
+              tcfFound = true;
+              log.info(`TCF API found on attempt ${i + 1} (fallback ping)`);
+              break;
+            }
+            await page.waitForTimeout(1000);
+          }
+
+          if (tcfFound) {
+            const tcfData = await page.evaluate(() =>
+              new Promise<{ cmpId?: number } | null>((resolve) =>
+                (window as any).__tcfapi('ping', 2, (pingReturn: any, success: boolean) => {
+                  if (success) {
+                    resolve({
+                      cmpId: pingReturn.cmpId,
+                    });
+                  } else {
+                    resolve(null);
+                  }
+                })
+              )
+            );
+            if (tcfData) {
+              request.userData.tcfapi_detected = true;
+              request.userData.cmp_id = tcfData.cmpId ?? null;
+              log.info('TCF fallback ping data:', tcfData);
+            }
+          }
+        } catch (err) {
+          log.info(`Error checking TCF API (fallback): ${err}`);
+        }
+      }
+    }
+  ],
   // Executes after postnav hooks
   requestHandler: async({request, log}) => {
     log.info(`🟢 ${request.url} loaded`);
@@ -116,13 +236,23 @@ const crawler = new PlaywrightCrawler({
     const scanData: ScanData = {
       publisher_url: request.url,
       tcfapi_detected: !!request.userData.tcfapi_detected,
-      cmp_id: request.userData?.cmp_id,
+      cmp_id: request.userData?.cmp_id ?? null,
+      uspapi_detected: !!request.userData.uspapi_detected,
+      usp_data: request.userData.uspData ? JSON.stringify(request.userData.uspData) : null,
+      gpp_detected: !!request.userData.gpp_detected,
+      gpp_data: request.userData.gppData ? JSON.stringify(request.userData.gppData) : null,
       crawl_reason: 'Tranco Top 1M',
       timestamp: dayjs().unix(),
     };
 
     if (scanData.tcfapi_detected) {
       log.info('TCF API detected', { cmp_id: scanData.cmp_id });
+    }
+    if (scanData.uspapi_detected) {
+      log.info('USP API detected', { usp_data: scanData.usp_data });
+    }
+    if (scanData.gpp_detected) {
+      log.info('GPP API detected', { gpp_data: scanData.gpp_data });
     }
 
     if (CONSTANTS.SAVE_TO_BIGQUERY) {
@@ -137,6 +267,10 @@ const crawler = new PlaywrightCrawler({
       publisher_url: request.url,
       tcfapi_detected: false,
       cmp_id: null,
+      uspapi_detected: false,
+      usp_data: null,
+      gpp_detected: false,
+      gpp_data: null,
       crawl_reason: 'Tranco Top 1M - Failure',
       timestamp: dayjs().unix(),
     };
